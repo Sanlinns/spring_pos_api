@@ -8,6 +8,8 @@ import com.binhlaig.pos.restaurant.entity.RestaurantTableStatus;
 import com.binhlaig.pos.restaurant.payment.RestaurantOrder;
 import com.binhlaig.pos.restaurant.payment.RestaurantOrderItem;
 import com.binhlaig.pos.restaurant.payment.RestaurantOrderRepository;
+import com.binhlaig.pos.restaurant.payment.RestaurantPayment;
+import com.binhlaig.pos.restaurant.payment.RestaurantPaymentRepository;
 import com.binhlaig.pos.restaurant.repository.RestaurantTableRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -21,6 +23,10 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -33,10 +39,47 @@ public class RestaurantOpenOrderService {
     private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {};
 
     private final RestaurantOrderRepository orderRepository;
+    private final RestaurantPaymentRepository paymentRepository;
     private final RestaurantTableRepository tableRepository;
     private final RestaurantAuthContext authContext;
     private final ObjectMapper objectMapper;
     private final PlanLimitService planLimitService;
+
+    @Transactional(readOnly = true)
+    public List<RestaurantOpenOrderResponse> getOrders(String authorizationHeader) {
+        RestaurantSession session = authContext.fromAuthorizationHeader(authorizationHeader);
+        planLimitService.assertCanUseRestaurant(session.shopId());
+
+        List<RestaurantOrder> orders = orderRepository.findShopOrdersWithItems(
+                session.shopId(), session.shopCode());
+        if (orders.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> orderIds = orders.stream().map(RestaurantOrder::getId).toList();
+        Map<Long, RestaurantPayment> latestPaidPaymentByOrder = paymentRepository
+                .findShopPaymentsForOrders(session.shopId(), session.shopCode(), "PAID", orderIds)
+                .stream()
+                .filter(payment -> belongsToShop(payment, session))
+                .collect(Collectors.toMap(
+                        payment -> payment.getOrder().getId(),
+                        Function.identity(),
+                        (latest, ignoredOlder) -> latest
+                ));
+
+        return orders.stream()
+                .map(order -> toResponse(order, latestPaidPaymentByOrder.get(order.getId())))
+                .toList();
+    }
+
+    private boolean belongsToShop(RestaurantPayment payment, RestaurantSession session) {
+        RestaurantOrder paymentOrder = payment.getOrder();
+        return Objects.equals(payment.getShopId(), session.shopId())
+                && Objects.equals(payment.getShopCode(), session.shopCode())
+                && paymentOrder != null
+                && Objects.equals(paymentOrder.getShopId(), session.shopId())
+                && Objects.equals(paymentOrder.getShopCode(), session.shopCode());
+    }
 
     @Transactional(readOnly = true)
     public RestaurantOpenOrderResponse getOpenOrderByTable(Long tableId, String authorizationHeader) {
@@ -114,10 +157,14 @@ public class RestaurantOpenOrderService {
     }
 
     private RestaurantOpenOrderResponse toResponse(RestaurantOrder order) {
+        return toResponse(order, null);
+    }
+
+    private RestaurantOpenOrderResponse toResponse(RestaurantOrder order, RestaurantPayment payment) {
         List<RestaurantOpenOrderItemResponse> items = order.getItems().stream()
                 .map(item -> RestaurantOpenOrderItemResponse.from(item, fromJson(item.getModifiers())))
                 .toList();
-        return RestaurantOpenOrderResponse.from(order, items);
+        return RestaurantOpenOrderResponse.from(order, items, payment);
     }
 
     private void validate(RestaurantOpenOrderRequest request) {

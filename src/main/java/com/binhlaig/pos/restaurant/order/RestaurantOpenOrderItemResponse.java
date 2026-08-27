@@ -13,6 +13,7 @@ public class RestaurantOpenOrderItemResponse {
 
     private Long id;
     private Long productId;
+    private Long menuItemId;
     private String itemName;
     private Integer quantity;
     private BigDecimal unitPrice;
@@ -24,12 +25,13 @@ public class RestaurantOpenOrderItemResponse {
         return RestaurantOpenOrderItemResponse.builder()
                 .id(item.getId())
                 .productId(item.getProductId())
+                .menuItemId(item.getProductId())
                 .itemName(item.getItemName())
                 .quantity(item.getQuantity())
                 .unitPrice(item.getUnitPrice())
                 .totalPrice(item.getTotalPrice())
                 .modifiers(modifiers)
-                .kitchenNote(item.getKitchenNote())
+                .kitchenNote(item.getKitchenNote() == null ? "" : item.getKitchenNote())
                 .build();
     }
 }

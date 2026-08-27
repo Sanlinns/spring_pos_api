@@ -129,8 +129,9 @@ public class RestaurantPaymentService {
         if (request.getTableId() == null) {
             return java.util.Optional.empty();
         }
-        return orderRepository.findFirstByShopIdAndTableIdAndStatusOrderByCreatedAtDesc(
+        return orderRepository.findFirstByShopIdAndShopCodeAndTableIdAndStatusOrderByCreatedAtDesc(
                 session.shopId(),
+                session.shopCode(),
                 request.getTableId(),
                 "OPEN"
         );
@@ -145,8 +146,14 @@ public class RestaurantPaymentService {
         order.setOrderType(normalizeOrderType(request.getOrderType()));
         order.setTableId(request.getTableId());
         order.setTableNo(tableNo);
-        order.setStaffId(blankToNull(request.getStaffId()));
-        order.setStaffName(blankToNull(request.getStaffName()));
+        String staffId = blankToNull(request.getStaffId());
+        String staffName = blankToNull(request.getStaffName());
+        if (staffId != null || order.getId() == null) {
+            order.setStaffId(staffId);
+        }
+        if (staffName != null || order.getId() == null) {
+            order.setStaffName(staffName);
+        }
         order.setSubtotal(zeroIfNull(request.getSubtotal()));
         order.setServiceCharge(zeroIfNull(request.getServiceCharge()));
         order.setTax(zeroIfNull(request.getTax()));

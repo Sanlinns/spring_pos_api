@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/restaurant/orders")
 @RequiredArgsConstructor
@@ -13,6 +15,14 @@ public class RestaurantOpenOrderController {
 
     private final RestaurantOpenOrderService openOrderService;
     private final ShopFeatureService shopFeatureService;
+
+    @GetMapping
+    public List<RestaurantOpenOrderResponse> getOrders(
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        shopFeatureService.requireFeatureFromAuthorization(authorizationHeader, FeatureKey.RESTAURANT_ORDERS);
+        return openOrderService.getOrders(authorizationHeader);
+    }
 
     @GetMapping("/open/table/{tableId}")
     public ResponseEntity<RestaurantOpenOrderResponse> getOpenOrderByTable(

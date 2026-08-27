@@ -1,6 +1,7 @@
 package com.binhlaig.pos.restaurant.order;
 
 import com.binhlaig.pos.restaurant.payment.RestaurantOrder;
+import com.binhlaig.pos.restaurant.payment.RestaurantPayment;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -12,6 +13,7 @@ import java.util.List;
 @Builder
 public class RestaurantOpenOrderResponse {
 
+    private Long id;
     private Long orderId;
     private String orderNo;
     private String orderType;
@@ -25,6 +27,11 @@ public class RestaurantOpenOrderResponse {
     private BigDecimal discount;
     private BigDecimal total;
     private String status;
+    private String paymentNo;
+    private String paymentMethod;
+    private BigDecimal cashReceived;
+    private BigDecimal changeAmount;
+    private LocalDateTime paidAt;
     private Long shopId;
     private String shopCode;
     private String note;
@@ -34,9 +41,11 @@ public class RestaurantOpenOrderResponse {
 
     public static RestaurantOpenOrderResponse from(
             RestaurantOrder order,
-            List<RestaurantOpenOrderItemResponse> items
+            List<RestaurantOpenOrderItemResponse> items,
+            RestaurantPayment payment
     ) {
         return RestaurantOpenOrderResponse.builder()
+                .id(order.getId())
                 .orderId(order.getId())
                 .orderNo(order.getOrderNo())
                 .orderType(order.getOrderType())
@@ -50,6 +59,11 @@ public class RestaurantOpenOrderResponse {
                 .discount(order.getDiscount())
                 .total(order.getTotal())
                 .status(order.getStatus())
+                .paymentNo(payment == null ? null : payment.getPaymentNo())
+                .paymentMethod(payment == null ? null : payment.getPaymentMethod())
+                .cashReceived(payment == null ? null : payment.getCashReceived())
+                .changeAmount(payment == null ? null : payment.getChangeAmount())
+                .paidAt(payment == null ? null : payment.getCreatedAt())
                 .shopId(order.getShopId())
                 .shopCode(order.getShopCode())
                 .note(order.getNote())
@@ -57,5 +71,12 @@ public class RestaurantOpenOrderResponse {
                 .updatedAt(order.getUpdatedAt())
                 .items(items)
                 .build();
+    }
+
+    public static RestaurantOpenOrderResponse from(
+            RestaurantOrder order,
+            List<RestaurantOpenOrderItemResponse> items
+    ) {
+        return from(order, items, null);
     }
 }
