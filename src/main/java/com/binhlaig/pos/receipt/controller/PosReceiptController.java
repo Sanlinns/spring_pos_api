@@ -86,6 +86,7 @@ import com.binhlaig.pos.user.User;
 import com.binhlaig.pos.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -114,6 +115,14 @@ public class PosReceiptController {
         AuthenticatedUserInfo userInfo = getLoginUserInfo(authentication);
         shopFeatureService.requireFeature(userInfo.getShopId(), userInfo.getShopCode(), FeatureKey.RECEIPTS);
         return receiptService.getMyReceipts(userInfo);
+    }
+
+    @GetMapping("/shop")
+    @PreAuthorize("hasAnyRole('ADMIN','OWNER')")
+    public List<ReceiptListResponse> getShopReceipts(Authentication authentication) {
+        AuthenticatedUserInfo userInfo = getLoginUserInfo(authentication);
+        shopFeatureService.requireFeature(userInfo.getShopId(), userInfo.getShopCode(), FeatureKey.RECEIPTS);
+        return receiptService.getShopReceipts(userInfo);
     }
 
     @GetMapping("/{receiptNo}")
