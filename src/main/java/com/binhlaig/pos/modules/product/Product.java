@@ -46,6 +46,10 @@ public class Product {
     @Column(name = "product_quantity_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal productQuantityAmount;
 
+    @Builder.Default
+    @Column(name = "available_for_sale", nullable = false)
+    private Boolean availableForSale = true;
+
     @Column(length = 64)
     private String barcode;
 
@@ -121,6 +125,10 @@ public class Product {
             productType = ProductType.OTHER;
         }
 
+        if (availableForSale == null) {
+            availableForSale = true;
+        }
+
         syncAndClean();
     }
 
@@ -140,6 +148,10 @@ public class Product {
 
         if (productType == null) {
             productType = ProductType.OTHER;
+        }
+
+        if (availableForSale == null) {
+            availableForSale = true;
         }
 
         syncAndClean();

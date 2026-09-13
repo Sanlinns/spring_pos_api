@@ -1,6 +1,8 @@
 package com.binhlaig.pos.restaurant.order;
 
 import com.binhlaig.pos.admin.PlanLimitService;
+import com.binhlaig.pos.modules.product.ProductRepository;
+import com.binhlaig.pos.modules.product.Product;
 import com.binhlaig.pos.restaurant.auth.RestaurantAuthContext;
 import com.binhlaig.pos.restaurant.auth.RestaurantSession;
 import com.binhlaig.pos.restaurant.payment.RestaurantOrder;
@@ -19,8 +21,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,6 +39,7 @@ class RestaurantOpenOrderServiceTest {
     @Mock private RestaurantTableRepository tableRepository;
     @Mock private RestaurantAuthContext authContext;
     @Mock private PlanLimitService planLimitService;
+    @Mock private ProductRepository productRepository;
 
     private RestaurantOpenOrderService service;
 
@@ -46,7 +51,8 @@ class RestaurantOpenOrderServiceTest {
                 tableRepository,
                 authContext,
                 new ObjectMapper(),
-                planLimitService
+                planLimitService,
+                productRepository
         );
         when(authContext.fromAuthorizationHeader(AUTHORIZATION))
                 .thenReturn(new RestaurantSession(SHOP_ID, SHOP_CODE));
@@ -107,6 +113,29 @@ class RestaurantOpenOrderServiceTest {
 
         assertThat(response.getPaymentNo()).isNull();
         assertThat(response.getPaymentMethod()).isNull();
+    }
+
+    @Test
+    void unavailableProductCannotBeSavedAsOpenOrder() {
+        RestaurantOpenOrderItemRequest item = new RestaurantOpenOrderItemRequest();
+        item.setProductId(17L);
+        item.setItemName("Coffee");
+        item.setQuantity(1);
+        item.setUnitPrice(BigDecimal.TEN);
+        item.setTotalPrice(BigDecimal.TEN);
+        RestaurantOpenOrderRequest request = new RestaurantOpenOrderRequest();
+        request.setOrderType("DINE_IN");
+        request.setTableId(2L);
+        request.setTotal(BigDecimal.TEN);
+        request.setItems(List.of(item));
+        Product product = Product.builder().id(17L).productName("Coffee")
+                .productQuantityAmount(new BigDecimal("15")).availableForSale(false).build();
+        when(productRepository.findByIdAndShopId(17L, SHOP_ID)).thenReturn(Optional.of(product));
+
+        assertThatThrownBy(() -> service.createOrUpdateOpenOrder(request, AUTHORIZATION))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Coffee is currently unavailable for sale.");
+        org.mockito.Mockito.verify(orderRepository, org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any());
     }
 
     private RestaurantOrder order(Long id, String status, Long shopId, String shopCode) {

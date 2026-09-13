@@ -12,6 +12,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
@@ -341,10 +343,20 @@ public class ProductService {
         return ProductResponse.from(product);
     }
 
+    @Transactional
+    public ProductResponse updateAvailability(Long productId, boolean availableForSale) {
+        User currentUser = getCurrentUserOrNull();
+        Product product = findProductForCurrentShop(
+                productId, currentUser == null ? null : currentUser.getShopId());
+        product.setAvailableForSale(availableForSale);
+        return ProductResponse.from(repo.save(product));
+    }
+
     private Product findProductForCurrentShop(Long id, Long shopId) {
         Long requiredShopId = requireCurrentShopId(shopId);
         return repo.findByIdAndShopId(id, requiredShopId)
-                .orElseThrow(() -> new IllegalArgumentException("Product not found: " + id));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Product not found: " + id));
     }
 
     private Long requireCurrentShopId(User user) {

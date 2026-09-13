@@ -1,6 +1,8 @@
 package com.binhlaig.pos.restaurant.order;
 
 import com.binhlaig.pos.admin.PlanLimitService;
+import com.binhlaig.pos.modules.product.Product;
+import com.binhlaig.pos.modules.product.ProductRepository;
 import com.binhlaig.pos.restaurant.auth.RestaurantAuthContext;
 import com.binhlaig.pos.restaurant.auth.RestaurantSession;
 import com.binhlaig.pos.restaurant.entity.RestaurantTable;
@@ -44,6 +46,7 @@ public class RestaurantOpenOrderService {
     private final RestaurantAuthContext authContext;
     private final ObjectMapper objectMapper;
     private final PlanLimitService planLimitService;
+    private final ProductRepository productRepository;
 
     @Transactional(readOnly = true)
     public List<RestaurantOpenOrderResponse> getOrders(String authorizationHeader) {
@@ -98,6 +101,7 @@ public class RestaurantOpenOrderService {
         planLimitService.assertCanUseRestaurant(session.shopId());
         planLimitService.assertCanUseTableOrder(session.shopId());
         validate(request);
+        validateProductsAvailable(request.getItems(), session.shopId());
 
         RestaurantTable table = tableRepository.findByIdAndShopId(request.getTableId(), session.shopId())
                 .orElseThrow(() -> new RuntimeException("Restaurant table not found"));
@@ -158,6 +162,23 @@ public class RestaurantOpenOrderService {
 
     private RestaurantOpenOrderResponse toResponse(RestaurantOrder order) {
         return toResponse(order, null);
+    }
+
+    private void validateProductsAvailable(List<RestaurantOpenOrderItemRequest> items, Long shopId) {
+        for (RestaurantOpenOrderItemRequest item : items) {
+            if (item.getProductId() == null) {
+                throw new IllegalArgumentException("productId is required");
+            }
+            Product product = productRepository.findByIdAndShopId(item.getProductId(), shopId)
+                    .orElseThrow(() -> new IllegalArgumentException("Product not found in this shop."));
+            if (!Boolean.TRUE.equals(product.getAvailableForSale())) {
+                throw new IllegalStateException(
+                        product.getProductName() + " is currently unavailable for sale.");
+            }
+            if (zeroIfNull(product.getProductQuantityAmount()).compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException(product.getProductName() + " is out of stock.");
+            }
+        }
     }
 
     private RestaurantOpenOrderResponse toResponse(RestaurantOrder order, RestaurantPayment payment) {

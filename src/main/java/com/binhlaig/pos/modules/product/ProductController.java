@@ -1,9 +1,11 @@
 package com.binhlaig.pos.modules.product;
 
 import com.binhlaig.pos.modules.product.dto.ProductResponse;
+import com.binhlaig.pos.modules.product.dto.ProductAvailabilityRequest;
 import com.binhlaig.pos.shopfeature.FeatureKey;
 import com.binhlaig.pos.shopfeature.ShopFeatureService;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -49,6 +51,17 @@ public class ProductController {
     ) {
         shopFeatureService.requireFeatureFromAuthorization(authorization, FeatureKey.PRODUCTS);
         return ResponseEntity.ok(service.getById(id));
+    }
+
+    @PatchMapping(value = "/{productId}/availability", consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ProductResponse> updateAvailability(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable Long productId,
+            @Valid @RequestBody ProductAvailabilityRequest request
+    ) {
+        shopFeatureService.requireFeatureFromAuthorization(authorization, FeatureKey.PRODUCTS);
+        return ResponseEntity.ok(service.updateAvailability(productId, request.availableForSale()));
     }
 
     @PostMapping(
