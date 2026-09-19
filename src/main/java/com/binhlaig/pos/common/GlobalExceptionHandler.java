@@ -8,6 +8,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.dao.PessimisticLockingFailureException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.time.OffsetDateTime;
 import java.util.*;
@@ -23,7 +25,15 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<?> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
-        return error(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", "Validation error", request);
+        String message = ex.getBindingResult().getFieldErrors().stream()
+                .findFirst().map(field -> field.getDefaultMessage()).orElse("Validation error");
+        return error(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", message, request);
+    }
+
+    @ExceptionHandler({PessimisticLockingFailureException.class, ObjectOptimisticLockingFailureException.class})
+    public ResponseEntity<?> handleConcurrentUpdate(Exception ex, HttpServletRequest request) {
+        return error(HttpStatus.CONFLICT, "CONCURRENT_UPDATE",
+                "The order changed concurrently; refresh it before retrying", request);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

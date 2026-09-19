@@ -3,6 +3,7 @@ package com.binhlaig.pos.restaurant.order;
 import com.binhlaig.pos.shopfeature.FeatureKey;
 import com.binhlaig.pos.shopfeature.ShopFeatureService;
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -41,5 +42,14 @@ public class RestaurantOpenOrderController {
     ) {
         shopFeatureService.requireFeatureFromAuthorization(authorizationHeader, FeatureKey.RESTAURANT_POS);
         return openOrderService.createOrUpdateOpenOrder(request, authorizationHeader);
+    }
+
+    @PostMapping("/items/cancel")
+    public RestaurantItemCancelResponse cancelSentItem(
+            @Valid @RequestBody RestaurantItemCancelRequest request,
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        shopFeatureService.requireFeatureFromAuthorization(authorizationHeader, FeatureKey.RESTAURANT_POS);
+        return openOrderService.cancelSentItem(request, authorizationHeader);
     }
 }

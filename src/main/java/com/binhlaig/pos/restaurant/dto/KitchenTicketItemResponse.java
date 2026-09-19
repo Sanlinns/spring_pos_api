@@ -20,6 +20,7 @@ public class KitchenTicketItemResponse {
     private String modifiers;
     private String kitchenNote;
     private String status;
+    private String cancelReason;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -34,6 +35,7 @@ public class KitchenTicketItemResponse {
                 .modifiers(item.getModifiers())
                 .kitchenNote(item.getKitchenNote())
                 .status(item.getStatus() == null ? null : item.getStatus().name())
+                .cancelReason(item.getCancelReason())
                 .createdAt(item.getCreatedAt())
                 .updatedAt(item.getUpdatedAt())
                 .build();

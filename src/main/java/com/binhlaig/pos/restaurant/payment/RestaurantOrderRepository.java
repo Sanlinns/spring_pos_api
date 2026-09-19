@@ -2,6 +2,8 @@ package com.binhlaig.pos.restaurant.payment;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
@@ -30,6 +32,7 @@ public interface RestaurantOrderRepository extends JpaRepository<RestaurantOrder
             String status
     );
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<RestaurantOrder> findFirstByShopIdAndShopCodeAndTableIdAndStatusOrderByCreatedAtDesc(
             Long shopId,
             String shopCode,
@@ -50,5 +53,18 @@ public interface RestaurantOrderRepository extends JpaRepository<RestaurantOrder
             @Param("shopId") Long shopId,
             @Param("tableId") Long tableId,
             @Param("status") String status
+    );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select o
+            from RestaurantOrder o
+            where o.shopId = :shopId
+              and o.tableId = :tableId
+            order by o.createdAt desc
+            """)
+    List<RestaurantOrder> findByShopAndTableForUpdate(
+            @Param("shopId") Long shopId,
+            @Param("tableId") Long tableId
     );
 }

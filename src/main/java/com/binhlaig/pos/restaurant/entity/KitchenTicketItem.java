@@ -48,6 +48,9 @@ public class KitchenTicketItem {
     @Column(nullable = false, length = 30)
     private KitchenItemStatus status;
 
+    @Column(name = "cancel_reason", length = 255)
+    private String cancelReason;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -78,6 +81,7 @@ public class KitchenTicketItem {
         itemName = itemName == null ? null : itemName.trim();
         modifiers = blankToNull(modifiers);
         kitchenNote = blankToNull(kitchenNote);
+        cancelReason = blankToNull(cancelReason);
     }
 
     private String blankToNull(String value) {

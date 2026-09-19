@@ -11,6 +11,8 @@ import com.binhlaig.pos.restaurant.payment.RestaurantOrderRepository;
 import com.binhlaig.pos.restaurant.payment.RestaurantPayment;
 import com.binhlaig.pos.restaurant.payment.RestaurantPaymentRepository;
 import com.binhlaig.pos.restaurant.repository.RestaurantTableRepository;
+import com.binhlaig.pos.restaurant.repository.KitchenTicketRepository;
+import com.binhlaig.pos.restaurant.repository.KitchenTicketItemRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,6 +42,8 @@ class RestaurantOpenOrderServiceTest {
     @Mock private RestaurantAuthContext authContext;
     @Mock private PlanLimitService planLimitService;
     @Mock private ProductRepository productRepository;
+    @Mock private KitchenTicketRepository kitchenTicketRepository;
+    @Mock private KitchenTicketItemRepository kitchenTicketItemRepository;
 
     private RestaurantOpenOrderService service;
 
@@ -52,7 +56,9 @@ class RestaurantOpenOrderServiceTest {
                 authContext,
                 new ObjectMapper(),
                 planLimitService,
-                productRepository
+                productRepository,
+                kitchenTicketRepository,
+                kitchenTicketItemRepository
         );
         when(authContext.fromAuthorizationHeader(AUTHORIZATION))
                 .thenReturn(new RestaurantSession(SHOP_ID, SHOP_CODE));
