@@ -101,7 +101,7 @@ public class RestaurantPaymentService {
         RestaurantSession session = authContext.fromAuthorizationHeader(authorizationHeader);
         planLimitService.assertCanUseRestaurant(session.shopId());
         return paymentRepository
-                .findByShopIdAndShopCodeOrderByCreatedAtDesc(session.shopId(), session.shopCode())
+                .findByShopIdOrderByCreatedAtDesc(session.shopId())
                 .stream()
                 .map(this::toListResponse)
                 .toList();
@@ -129,9 +129,8 @@ public class RestaurantPaymentService {
         if (request.getTableId() == null) {
             return java.util.Optional.empty();
         }
-        return orderRepository.findFirstByShopIdAndShopCodeAndTableIdAndStatusOrderByCreatedAtDesc(
+        return orderRepository.findFirstByShopIdAndTableIdAndStatusOrderByCreatedAtDesc(
                 session.shopId(),
-                session.shopCode(),
                 request.getTableId(),
                 "OPEN"
         );

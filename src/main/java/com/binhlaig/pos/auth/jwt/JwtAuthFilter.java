@@ -232,12 +232,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
 
         Long staffId = jwtService.extractStaffId(jwt);
-        String shopCode = jwtService.extractShopCode(jwt);
-        if (staffId == null || shopCode == null || shopCode.isBlank()) {
+        Long shopId = jwtService.extractShopId(jwt);
+        if (staffId == null || shopId == null) {
             return false;
         }
 
-        Staff staff = staffRepository.findByShopCodeAndStaffId(shopCode, staffId).orElse(null);
+        Staff staff = staffRepository.findByStaffIdAndShopId(staffId, shopId).orElse(null);
         return staff != null
                 && jwtService.isStaffTokenValid(jwt, staff)
                 && (staff.getStatus() == null || !staff.getStatus().equalsIgnoreCase("inactive"));

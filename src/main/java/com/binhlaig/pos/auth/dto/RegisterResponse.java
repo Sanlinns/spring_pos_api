@@ -34,6 +34,8 @@ public class RegisterResponse {
     private String message;
     private String username;
     private String role;
+    private String email;
+    private String phone;
 
     private Long shopId;
     private String shopCode;

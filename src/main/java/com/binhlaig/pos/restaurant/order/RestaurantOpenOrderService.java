@@ -318,15 +318,14 @@ public class RestaurantOpenOrderService {
         RestaurantSession session = authContext.fromAuthorizationHeader(authorizationHeader);
         planLimitService.assertCanUseRestaurant(session.shopId());
 
-        List<RestaurantOrder> orders = orderRepository.findShopOrdersWithItems(
-                session.shopId(), session.shopCode());
+        List<RestaurantOrder> orders = orderRepository.findShopOrdersWithItems(session.shopId());
         if (orders.isEmpty()) {
             return List.of();
         }
 
         List<Long> orderIds = orders.stream().map(RestaurantOrder::getId).toList();
         Map<Long, RestaurantPayment> latestPaidPaymentByOrder = paymentRepository
-                .findShopPaymentsForOrders(session.shopId(), session.shopCode(), "PAID", orderIds)
+                .findShopPaymentsForOrders(session.shopId(), "PAID", orderIds)
                 .stream()
                 .filter(payment -> belongsToShop(payment, session))
                 .collect(Collectors.toMap(
@@ -343,10 +342,8 @@ public class RestaurantOpenOrderService {
     private boolean belongsToShop(RestaurantPayment payment, RestaurantSession session) {
         RestaurantOrder paymentOrder = payment.getOrder();
         return Objects.equals(payment.getShopId(), session.shopId())
-                && Objects.equals(payment.getShopCode(), session.shopCode())
                 && paymentOrder != null
-                && Objects.equals(paymentOrder.getShopId(), session.shopId())
-                && Objects.equals(paymentOrder.getShopCode(), session.shopCode());
+                && Objects.equals(paymentOrder.getShopId(), session.shopId());
     }
 
     @Transactional(readOnly = true)

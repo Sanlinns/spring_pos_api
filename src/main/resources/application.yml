@@ -30,8 +30,12 @@ management:
         include: health,info
 
 app:
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+  mail:
+    resend-api-key: ${RESEND_API_KEY:}
+    from-email: ${RESEND_FROM_EMAIL:no-reply@binhlaig.com}
   jwt:
-    secret: ${JWT_SECRET:}
+    secret: ${APP_JWT_SECRET:${JWT_SECRET:}}
     expiresMinutes: ${APP_JWT_EXPIRES_MINUTES:1440}
   upload:
     dir: ${APP_UPLOAD_DIR:./uploads}

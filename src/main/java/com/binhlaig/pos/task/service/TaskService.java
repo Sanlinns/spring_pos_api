@@ -123,22 +123,17 @@ public class TaskService {
 
     public List<TaskResponse> getMyTasks(String token) {
         Long shopId = jwtService.extractShopId(token);
-        String shopCode = jwtService.extractShopCode(token);
         Long staffBusinessId = jwtService.extractStaffId(token);
 
         if (shopId == null) {
             throw new RuntimeException("Shop ID not found in token");
         }
 
-        if (shopCode == null || shopCode.isBlank()) {
-            throw new RuntimeException("Shop code not found in token");
-        }
-
         if (staffBusinessId == null) {
             throw new RuntimeException("Staff ID not found in token");
         }
 
-        Staff staff = staffRepository.findByShopCodeAndStaffId(shopCode, staffBusinessId)
+        Staff staff = staffRepository.findByStaffIdAndShopId(staffBusinessId, shopId)
                 .orElseThrow(() -> new RuntimeException("Staff not found for current login"));
 
         return taskRepository

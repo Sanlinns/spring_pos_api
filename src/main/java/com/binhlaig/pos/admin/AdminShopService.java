@@ -12,6 +12,7 @@ import com.binhlaig.pos.user.BusinessType;
 import com.binhlaig.pos.user.User;
 import com.binhlaig.pos.user.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +22,9 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.regex.Pattern;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.CONFLICT;
@@ -30,6 +33,10 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 @Service
 @RequiredArgsConstructor
 public class AdminShopService {
+
+    private static final Pattern EMAIL_PATTERN = Pattern.compile(
+            "^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9-]+(?:\\.[A-Z0-9-]+)+$",
+            Pattern.CASE_INSENSITIVE);
 
     private final ShopRepository shopRepository;
     private final UserRepository userRepository;
@@ -66,6 +73,8 @@ public class AdminShopService {
     @Transactional
     public AdminShopRegisterResponse registerShop(
             String username,
+            String email,
+            String phone,
             String password,
             String role,
             Long shopId,
@@ -79,8 +88,10 @@ public class AdminShopService {
             MultipartFile image
     ) throws Exception {
         String cleanUsername = required(username, "Username is required");
+        String cleanEmail = required(email, "Email is required").toLowerCase(Locale.ROOT);
+        String cleanPhone = clean(phone);
         String cleanPassword = password == null ? "" : password.trim();
-        String cleanShopCode = required(shopCode, "Shop code is required").toUpperCase();
+        String cleanShopCode = required(shopCode, "Shop code is required").toUpperCase(Locale.ROOT);
         String cleanShopName = required(shopName, "Shop name is required");
         String cleanAddress = required(address, "Address is required");
         BusinessType parsedBusinessType = parseBusinessType(businessType);
@@ -89,6 +100,12 @@ public class AdminShopService {
         int days = subscriptionDays == null || subscriptionDays <= 0 ? 14 : subscriptionDays;
         Role parsedRole = parseOwnerRole(role);
 
+        if (cleanEmail.length() > 255 || !EMAIL_PATTERN.matcher(cleanEmail).matches()) {
+            throw new ResponseStatusException(BAD_REQUEST, "Email must be valid and at most 255 characters");
+        }
+        if (cleanPhone != null && cleanPhone.length() > 30) {
+            throw new ResponseStatusException(BAD_REQUEST, "Phone must be at most 30 characters");
+        }
         if (cleanPassword.length() < 8) {
             throw new ResponseStatusException(BAD_REQUEST, "Password must be at least 8 characters");
         }
@@ -103,6 +120,9 @@ public class AdminShopService {
         }
         if (userRepository.existsByUsername(cleanUsername)) {
             throw new ResponseStatusException(CONFLICT, "Username already exists");
+        }
+        if (userRepository.existsByEmailIgnoreCase(cleanEmail)) {
+            throw new ResponseStatusException(CONFLICT, "Email already exists.");
         }
 
         LocalDate today = LocalDate.now();
@@ -129,6 +149,8 @@ public class AdminShopService {
 
         User owner = User.builder()
                 .username(cleanUsername)
+                .email(cleanEmail)
+                .phone(cleanPhone)
                 .password(passwordEncoder.encode(cleanPassword))
                 .role(parsedRole)
                 .shopId(shopId)
@@ -138,11 +160,17 @@ public class AdminShopService {
                 .businessType(parsedBusinessType)
                 .imageUrl(imageUrl)
                 .build();
-        userRepository.save(owner);
+        try {
+            userRepository.saveAndFlush(owner);
+        } catch (DataIntegrityViolationException ex) {
+            throw new ResponseStatusException(CONFLICT, "Username or email already exists.");
+        }
 
         return new AdminShopRegisterResponse(
                 "Shop and owner account created successfully",
                 owner.getUsername(),
+                owner.getEmail(),
+                owner.getPhone(),
                 owner.getRole().name(),
                 shop.getId(),
                 shop.getShopCode(),

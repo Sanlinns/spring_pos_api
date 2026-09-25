@@ -68,8 +68,8 @@ class RestaurantOpenOrderServiceTest {
     void paidOrderIncludesPaymentStaffAndItems() {
         RestaurantOrder order = order(1L, "PAID", SHOP_ID, SHOP_CODE);
         RestaurantPayment payment = payment(order, SHOP_ID, SHOP_CODE, "RP-20260827204437");
-        when(orderRepository.findShopOrdersWithItems(SHOP_ID, SHOP_CODE)).thenReturn(List.of(order));
-        when(paymentRepository.findShopPaymentsForOrders(SHOP_ID, SHOP_CODE, "PAID", List.of(1L)))
+        when(orderRepository.findShopOrdersWithItems(SHOP_ID)).thenReturn(List.of(order));
+        when(paymentRepository.findShopPaymentsForOrders(SHOP_ID, "PAID", List.of(1L)))
                 .thenReturn(List.of(payment));
 
         RestaurantOpenOrderResponse response = service.getOrders(AUTHORIZATION).get(0);
@@ -94,8 +94,8 @@ class RestaurantOpenOrderServiceTest {
     @Test
     void unpaidOrderHasNullPaymentFields() {
         RestaurantOrder order = order(2L, "OPEN", SHOP_ID, SHOP_CODE);
-        when(orderRepository.findShopOrdersWithItems(SHOP_ID, SHOP_CODE)).thenReturn(List.of(order));
-        when(paymentRepository.findShopPaymentsForOrders(SHOP_ID, SHOP_CODE, "PAID", List.of(2L)))
+        when(orderRepository.findShopOrdersWithItems(SHOP_ID)).thenReturn(List.of(order));
+        when(paymentRepository.findShopPaymentsForOrders(SHOP_ID, "PAID", List.of(2L)))
                 .thenReturn(List.of());
 
         RestaurantOpenOrderResponse response = service.getOrders(AUTHORIZATION).get(0);
@@ -111,8 +111,8 @@ class RestaurantOpenOrderServiceTest {
     void ignoresPaymentThatDoesNotBelongToAuthenticatedShop() {
         RestaurantOrder order = order(3L, "PAID", SHOP_ID, SHOP_CODE);
         RestaurantPayment foreignPayment = payment(order, 9999L, "OTHER", "RP-FOREIGN");
-        when(orderRepository.findShopOrdersWithItems(SHOP_ID, SHOP_CODE)).thenReturn(List.of(order));
-        when(paymentRepository.findShopPaymentsForOrders(SHOP_ID, SHOP_CODE, "PAID", List.of(3L)))
+        when(orderRepository.findShopOrdersWithItems(SHOP_ID)).thenReturn(List.of(order));
+        when(paymentRepository.findShopPaymentsForOrders(SHOP_ID, "PAID", List.of(3L)))
                 .thenReturn(List.of(foreignPayment));
 
         RestaurantOpenOrderResponse response = service.getOrders(AUTHORIZATION).get(0);

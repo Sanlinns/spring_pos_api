@@ -230,9 +230,11 @@ import com.binhlaig.pos.user.User;
 import com.binhlaig.pos.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
@@ -240,10 +242,15 @@ import java.time.OffsetDateTime;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
+
+    private static final Pattern EMAIL_PATTERN = Pattern.compile(
+            "^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9-]+(?:\\.[A-Z0-9-]+)+$",
+            Pattern.CASE_INSENSITIVE);
 
     private final UserRepository userRepository;
     private final StaffRepository staffRepository;
@@ -255,13 +262,19 @@ public class AuthService {
     private final ShopRepository shopRepository;
     private final ShopFeatureRepository shopFeatureRepository;
 
+    @Transactional
     public RegisterResponse registerMultipart(RegisterMultipartRequest req, MultipartFile image) throws Exception {
         String username = req.username() == null ? "" : req.username().trim();
         String password = req.password() == null ? "" : req.password().trim();
+        String email = normalizeEmail(req.email());
+        String phone = normalizePhone(req.phone());
         String shopName = req.shopName() == null ? "" : req.shopName().trim();
         String address = req.address() == null ? "" : req.address().trim();
         BusinessType businessType = req.businessType() == null ? BusinessType.SUPERMARKET : req.businessType();
 
+        if (email == null) {
+            throw new IllegalArgumentException("Email is required");
+        }
         if (username.isBlank()) {
             throw new RuntimeException("Username is required");
         }
@@ -282,6 +295,15 @@ public class AuthService {
             throw new RuntimeException("Username already exists");
         }
 
+        if (email != null && !EMAIL_PATTERN.matcher(email).matches()) {
+            throw new IllegalArgumentException("Email must be valid");
+        }
+
+        if (email != null && userRepository.existsByEmailIgnoreCase(email)) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT, "Email already exists");
+        }
+
         String imageUrl = null;
 
         if (image != null && !image.isEmpty()) {
@@ -292,6 +314,8 @@ public class AuthService {
 
         User user = User.builder()
                 .username(username)
+                .email(email)
+                .phone(phone)
                 .password(passwordEncoder.encode(password))
                 .role(Role.ADMIN)
                 .shopId(shop.getId())
@@ -302,12 +326,20 @@ public class AuthService {
                 .imageUrl(imageUrl)
                 .build();
 
-        userRepository.save(user);
+        try {
+            userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException ex) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT,
+                    "Username or email already exists");
+        }
 
         return RegisterResponse.builder()
                 .message("User registered successfully")
                 .username(user.getUsername())
                 .role(user.getRole().name())
+                .email(user.getEmail())
+                .phone(user.getPhone())
                 .shopId(user.getShopId())
                 .shopCode(user.getShopCode())
                 .shopName(user.getShopName())
@@ -315,6 +347,22 @@ public class AuthService {
                 .businessType(businessTypeName(user))
                 .imageUrl(user.getImageUrl())
                 .build();
+    }
+
+    private String normalizeEmail(String value) {
+        String normalized = value == null ? null : value.trim().toLowerCase(Locale.ROOT);
+        return normalized == null || normalized.isBlank() ? null : normalized;
+    }
+
+    private String normalizePhone(String value) {
+        String normalized = value == null ? null : value.trim();
+        if (normalized == null || normalized.isBlank()) {
+            return null;
+        }
+        if (normalized.length() > 30) {
+            throw new IllegalArgumentException("Phone must be at most 30 characters");
+        }
+        return normalized;
     }
 
     private Shop createShop(String shopName, String address, BusinessType businessType) {
@@ -434,8 +482,8 @@ public class AuthService {
             throw new RuntimeException("Your account is inactive");
         }
 
-        User user = userRepository.findFirstByShopCodeIgnoreCase(shopCode)
-                .orElseThrow(() -> new RuntimeException("Shop user not found for shop code: " + shopCode));
+        User user = userRepository.findFirstByShopId(staff.getShopId())
+                .orElseThrow(() -> new RuntimeException("Shop user not found"));
 
         if (user.getShopId() != null && staff.getShopId() != null && !user.getShopId().equals(staff.getShopId())) {
             throw new RuntimeException("Staff does not belong to this shop");

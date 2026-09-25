@@ -170,10 +170,16 @@ public class JwtService {
 
     public boolean isTokenValid(String token, User user) {
         final String username = extractUsername(token);
+        final Long tokenShopId = extractShopId(token);
+        final String tokenShopCode = extractShopCode(token);
 
         return username != null
                 && user != null
                 && username.equals(user.getUsername())
+                && user.getShopId() != null
+                && user.getShopId().equals(tokenShopId)
+                && user.getShopCode() != null
+                && user.getShopCode().equalsIgnoreCase(tokenShopCode)
                 && !isTokenExpired(token);
     }
 

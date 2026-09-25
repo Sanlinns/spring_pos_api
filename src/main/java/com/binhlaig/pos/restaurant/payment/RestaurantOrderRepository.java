@@ -16,26 +16,15 @@ public interface RestaurantOrderRepository extends JpaRepository<RestaurantOrder
             from RestaurantOrder o
             left join fetch o.items
             where o.shopId = :shopId
-              and o.shopCode = :shopCode
             order by o.createdAt desc
             """)
-    List<RestaurantOrder> findShopOrdersWithItems(
-            @Param("shopId") Long shopId,
-            @Param("shopCode") String shopCode
-    );
+    List<RestaurantOrder> findShopOrdersWithItems(@Param("shopId") Long shopId);
 
     Optional<RestaurantOrder> findByIdAndShopId(Long id, Long shopId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<RestaurantOrder> findFirstByShopIdAndTableIdAndStatusOrderByCreatedAtDesc(
             Long shopId,
-            Long tableId,
-            String status
-    );
-
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    Optional<RestaurantOrder> findFirstByShopIdAndShopCodeAndTableIdAndStatusOrderByCreatedAtDesc(
-            Long shopId,
-            String shopCode,
             Long tableId,
             String status
     );

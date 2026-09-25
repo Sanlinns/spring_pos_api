@@ -32,6 +32,7 @@ services:
       - ../.env
     environment:
       SERVER_PORT: ${SERVER_PORT:-8080}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-}
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-posdb}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-posuser}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-pospass}
@@ -39,6 +40,9 @@ services:
       APP_JWT_EXPIRES_MINUTES: ${APP_JWT_EXPIRES_MINUTES:-1440}
       APP_UPLOAD_DIR: /app/uploads
       JPA_DDL_AUTO: ${JPA_DDL_AUTO:-update}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-no-reply@binhlaig.com}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
     ports:
       - "8080:8080"
     volumes:

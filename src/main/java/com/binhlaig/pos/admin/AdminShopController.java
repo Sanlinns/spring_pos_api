@@ -41,6 +41,8 @@ public class AdminShopController {
     @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public AdminShopRegisterResponse registerShop(
             @RequestParam String username,
+            @RequestParam String email,
+            @RequestParam(required = false) String phone,
             @RequestParam String password,
             @RequestParam(required = false, defaultValue = "ADMIN") String role,
             @RequestParam Long shopId,
@@ -55,6 +57,8 @@ public class AdminShopController {
     ) throws Exception {
         return adminShopService.registerShop(
                 username,
+                email,
+                phone,
                 password,
                 role,
                 shopId,

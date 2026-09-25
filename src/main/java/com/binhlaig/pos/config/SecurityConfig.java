@@ -214,8 +214,14 @@ public class SecurityConfig {
                         // public basic paths
                         .requestMatchers("/", "/error", "/favicon.ico").permitAll()
 
-                        // auth endpoints
-                        .requestMatchers("/api/auth/**").permitAll()
+                        // public authentication endpoints
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/auth/register",
+                                "/api/auth/login",
+                                "/api/auth/staff/login",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password",
+                                "/api/auth/reset-password/validate").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/admin/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/admin/auth/register").permitAll()
 
@@ -229,6 +235,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/tasks/ping").permitAll()
 
                         // protected APIs
+                        .requestMatchers("/api/owner/**").hasRole("ADMIN")
                         .requestMatchers("/api/me/**").authenticated()
                         .requestMatchers("/api/staff/**").authenticated()
                         .requestMatchers("/api/tasks/**").authenticated()

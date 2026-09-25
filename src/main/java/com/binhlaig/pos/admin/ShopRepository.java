@@ -12,6 +12,8 @@ public interface ShopRepository extends JpaRepository<Shop, Long> {
 
     boolean existsByShopCode(String shopCode);
 
+    boolean existsByShopCodeIgnoreCase(String shopCode);
+
     Optional<Shop> findById(Long id);
 
     List<Shop> findAllByOrderByCreatedAtDesc();

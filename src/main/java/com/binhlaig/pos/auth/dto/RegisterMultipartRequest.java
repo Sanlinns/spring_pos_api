@@ -22,6 +22,8 @@ import com.binhlaig.pos.user.BusinessType;
 public record RegisterMultipartRequest(
         String username,
         String password,
+        String email,
+        String phone,
         String shopName,
         String address,
         BusinessType businessType

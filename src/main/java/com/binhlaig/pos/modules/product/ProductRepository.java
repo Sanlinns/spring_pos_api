@@ -148,14 +148,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             String productName
     );
 
-    // Current shop products by shop_code
-    List<Product> findByShopCode(String shopCode);
-
-    List<Product> findByShopCodeAndProductNameContainingIgnoreCase(
-            String shopCode,
-            String productName
-    );
-
     // ----------------------------------------------------------------
     // Receipt / POS sale stock update
     // ----------------------------------------------------------------

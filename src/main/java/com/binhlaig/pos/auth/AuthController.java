@@ -71,7 +71,12 @@
 package com.binhlaig.pos.auth;
 
 import com.binhlaig.pos.auth.dto.AuthResponse;
+import com.binhlaig.pos.auth.dto.ForgotPasswordRequest;
 import com.binhlaig.pos.auth.dto.LoginRequest;
+import com.binhlaig.pos.auth.dto.PasswordResetResponse;
+import com.binhlaig.pos.auth.dto.ResetPasswordRequest;
+import com.binhlaig.pos.auth.dto.ResetTokenValidationRequest;
+import com.binhlaig.pos.auth.dto.ResetTokenValidationResponse;
 import com.binhlaig.pos.auth.dto.RegisterMultipartRequest;
 import com.binhlaig.pos.auth.dto.RegisterResponse;
 import com.binhlaig.pos.auth.dto.StaffLoginRequest;
@@ -88,11 +93,14 @@ import org.springframework.web.multipart.MultipartFile;
 public class AuthController {
 
     private final AuthService service;
+    private final PasswordResetService passwordResetService;
 
     @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public RegisterResponse register(
             @RequestParam("username") String username,
             @RequestParam("password") String password,
+            @RequestParam("email") String email,
+            @RequestParam(value = "phone", required = false) String phone,
             @RequestParam("shopName") String shopName,
             @RequestParam("address") String address,
             @RequestParam(value = "businessType", required = false) String businessType,
@@ -101,6 +109,8 @@ public class AuthController {
         var req = new RegisterMultipartRequest(
                 username,
                 password,
+                email,
+                phone,
                 shopName,
                 address,
                 parseBusinessType(businessType)
@@ -117,6 +127,22 @@ public class AuthController {
     @PostMapping("/staff/login")
     public AuthResponse staffLogin(@RequestBody @Valid StaffLoginRequest req) {
         return service.staffLogin(req);
+    }
+
+    @PostMapping("/forgot-password")
+    public PasswordResetResponse forgotPassword(@RequestBody @Valid ForgotPasswordRequest req) {
+        return passwordResetService.forgotPassword(req);
+    }
+
+    @PostMapping("/reset-password")
+    public PasswordResetResponse resetPassword(@RequestBody @Valid ResetPasswordRequest req) {
+        return passwordResetService.resetPassword(req);
+    }
+
+    @PostMapping("/reset-password/validate")
+    public ResetTokenValidationResponse validateResetToken(
+            @RequestBody @Valid ResetTokenValidationRequest req) {
+        return passwordResetService.validateResetToken(req.token());
     }
 
     private BusinessType parseBusinessType(String businessType) {
