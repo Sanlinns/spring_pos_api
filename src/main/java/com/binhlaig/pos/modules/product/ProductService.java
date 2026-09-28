@@ -58,7 +58,7 @@ public class ProductService {
         String keyword = hasSearch ? q.trim() : null;
 
         products = hasSearch
-                ? repo.findByShopIdAndProductNameContainingIgnoreCase(finalShopId, keyword)
+                ? repo.searchByShopId(finalShopId, keyword)
                 : repo.findByShopId(finalShopId);
 
         return products.stream()
@@ -339,6 +339,20 @@ public class ProductService {
     public ProductResponse getById(Long id) {
         User currentUser = getCurrentUserOrNull();
         Product product = findProductForCurrentShop(id, currentUser == null ? null : currentUser.getShopId());
+
+        return ProductResponse.from(product);
+    }
+
+    @Transactional(readOnly = true)
+    public ProductResponse getByBarcode(String barcode) {
+        String normalizedBarcode = cleanRequired(barcode, "Barcode");
+        User currentUser = getCurrentUserOrNull();
+        Long shopId = requireCurrentShopId(currentUser);
+
+        Product product = repo.findByBarcodeAndShopId(normalizedBarcode, shopId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Product not found for barcode: " + normalizedBarcode));
 
         return ProductResponse.from(product);
     }

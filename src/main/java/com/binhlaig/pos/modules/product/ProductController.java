@@ -44,6 +44,15 @@ public class ProductController {
         return service.listMine(q, null, null, null, authorization);
     }
 
+    @GetMapping(value = "/by-barcode/{barcode}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ProductResponse> getByBarcode(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable String barcode
+    ) {
+        shopFeatureService.requireFeatureFromAuthorization(authorization, FeatureKey.PRODUCTS);
+        return ResponseEntity.ok(service.getByBarcode(barcode));
+    }
+
     @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ProductResponse> getById(
             @RequestHeader(value = "Authorization", required = false) String authorization,

@@ -148,6 +148,21 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             String productName
     );
 
+    @Query("""
+           SELECT p
+           FROM Product p
+           WHERE p.shopId = :shopId
+             AND (
+                 LOWER(p.productName) LIKE LOWER(CONCAT('%', :query, '%'))
+                 OR LOWER(p.sku) LIKE LOWER(CONCAT('%', :query, '%'))
+                 OR p.barcode = :query
+             )
+           """)
+    List<Product> searchByShopId(
+            @Param("shopId") Long shopId,
+            @Param("query") String query
+    );
+
     // ----------------------------------------------------------------
     // Receipt / POS sale stock update
     // ----------------------------------------------------------------
