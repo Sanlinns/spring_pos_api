@@ -2,6 +2,7 @@ package com.binhlaig.pos.modules.product;
 
 import com.binhlaig.pos.modules.product.dto.ProductResponse;
 import com.binhlaig.pos.modules.product.dto.ProductAvailabilityRequest;
+import com.binhlaig.pos.modules.product.dto.StockOperationRequest;
 import com.binhlaig.pos.shopfeature.FeatureKey;
 import com.binhlaig.pos.shopfeature.ShopFeatureService;
 import jakarta.validation.constraints.NotBlank;
@@ -22,6 +23,15 @@ public class ProductController {
 
     private final ProductService service;
     private final ShopFeatureService shopFeatureService;
+
+    @PostMapping(value = "/{id}/stock", consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ProductResponse operateStock(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable Long id, @Valid @RequestBody StockOperationRequest request) {
+        shopFeatureService.requireFeatureFromAuthorization(authorization, FeatureKey.PRODUCTS);
+        return service.operateStock(id, request);
+    }
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     public List<ProductResponse> list(

@@ -2,6 +2,7 @@ package com.binhlaig.pos.modules.product;
 
 import com.binhlaig.pos.admin.PlanLimitService;
 import com.binhlaig.pos.modules.product.dto.ProductResponse;
+import com.binhlaig.pos.modules.product.dto.StockOperationRequest;
 import com.binhlaig.pos.storage.FileStorageService;
 import com.binhlaig.pos.user.User;
 import com.binhlaig.pos.user.UserRepository;
@@ -29,6 +30,8 @@ public class ProductService {
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
     private final PlanLimitService planLimitService;
+    private final StockService stockService;
+    private final StockRequestService stockRequests;
 
     // ─────────────────────────────────────────────────────────────
     // OLD list - keep for compatibility
@@ -154,7 +157,9 @@ public class ProductService {
                 .createdBy(finalCreatedByJson)
                 .build();
 
+        stockService.initialize(p);
         Product saved = repo.save(p);
+        stockService.recordOpening(saved);
         return ProductResponse.from(saved);
     }
 
@@ -222,7 +227,11 @@ public class ProductService {
 
         User currentUser = getCurrentUserOrNull();
         Long currentShopId = currentUser == null ? null : currentUser.getShopId();
-        Product p = findProductForCurrentShop(id, currentShopId);
+        if (productQuantityAmount != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Product edit cannot change stock; use ADD_STOCK or STOCK_CORRECTION");
+        }
+        Product p = lockProductForCurrentShop(id, currentShopId);
 
         if (sku != null && !sku.trim().isEmpty()) {
             String newSku = sku.trim();
@@ -242,10 +251,6 @@ public class ProductService {
 
         if (productPrice != null) {
             p.setProductPrice(productPrice);
-        }
-
-        if (productQuantityAmount != null) {
-            p.setProductQuantityAmount(productQuantityAmount);
         }
 
         if (barcode != null) {
@@ -329,7 +334,8 @@ public class ProductService {
         // FileStorageService မှာ delete method ရှိရင် ဖွင့်သုံးနိုင်ပါတယ်။
         // storage.delete(p.getImagePath());
 
-        repo.delete(p);
+        throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Tracked products retain stock history; disable availability instead of deleting");
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -360,10 +366,33 @@ public class ProductService {
     @Transactional
     public ProductResponse updateAvailability(Long productId, boolean availableForSale) {
         User currentUser = getCurrentUserOrNull();
-        Product product = findProductForCurrentShop(
+        Product product = lockProductForCurrentShop(
                 productId, currentUser == null ? null : currentUser.getShopId());
         product.setAvailableForSale(availableForSale);
         return ProductResponse.from(repo.save(product));
+    }
+
+    @Transactional
+    public ProductResponse operateStock(Long id, StockOperationRequest request) {
+        Long shopId = requireCurrentShopId(getCurrentUserOrNull());
+        return stockRequests.execute(shopId, request.requestId(), "PRODUCT_STOCK:" + id,
+                request, ProductResponse.class, () -> {
+                    Product product = lockProductForCurrentShop(id, shopId);
+                    String reference = "STOCK:" + request.requestId();
+                    if (request.operation() == StockOperationRequest.Operation.ADD_STOCK) {
+                        stockService.add(product, request.quantity(), reference, request.reason());
+                    } else if (request.operation() == StockOperationRequest.Operation.STOCK_CORRECTION) {
+                        stockService.correct(product, request.quantity(), reference, request.reason());
+                    } else {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Stock operation required");
+                    }
+                    return ProductResponse.from(repo.save(product));
+                });
+    }
+
+    private Product lockProductForCurrentShop(Long id, Long shopId) {
+        return repo.findByIdAndShopIdForUpdate(id, requireCurrentShopId(shopId))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found: " + id));
     }
 
     private Product findProductForCurrentShop(Long id, Long shopId) {

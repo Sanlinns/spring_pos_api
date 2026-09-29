@@ -29,12 +29,21 @@ public class PosReceiptService {
     private final PosReceiptRepository receiptRepository;
     private final ProductRepository productRepository;
     private final PlanLimitService planLimitService;
+    private final com.binhlaig.pos.modules.product.StockService stockService;
+    private final com.binhlaig.pos.modules.product.StockRequestService stockRequests;
 
     @Transactional
     public ReceiptResponse createReceipt(
             ReceiptCreateRequest request,
             AuthenticatedUserInfo userInfo
     ) {
+        if (request == null || userInfo == null || userInfo.getShopId() == null)
+            throw new IllegalArgumentException("Receipt and shop are required");
+        return stockRequests.execute(userInfo.getShopId(), request.getRequestId(), "POS",
+                request, ReceiptResponse.class, () -> createReceiptOnce(request, userInfo));
+    }
+
+    private ReceiptResponse createReceiptOnce(ReceiptCreateRequest request, AuthenticatedUserInfo userInfo) {
         if (request == null) {
             throw new IllegalArgumentException("Receipt request is empty.");
         }
@@ -78,10 +87,12 @@ public class PosReceiptService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
+        int line = 0;
         for (ReceiptItemRequest item : request.getItems()) {
             PosReceiptItem receiptItem = createReceiptItemAndReduceStock(
                     item,
-                    userInfo.getShopId()
+                    userInfo.getShopId(),
+                    "POS:" + request.getRequestId() + ":" + line++
             );
 
             receipt.addItem(receiptItem);
@@ -100,7 +111,8 @@ public class PosReceiptService {
 
     private PosReceiptItem createReceiptItemAndReduceStock(
             ReceiptItemRequest item,
-            Long shopId
+            Long shopId,
+            String reference
     ) {
         if (item == null) {
             throw new IllegalArgumentException("Receipt item is empty.");
@@ -148,9 +160,7 @@ public class PosReceiptService {
             );
         }
 
-        BigDecimal nextStock = currentStock.subtract(soldQtyValue);
-
-        product.setProductQuantityAmount(nextStock);
+        stockService.sell(product, soldQtyValue, reference);
         productRepository.save(product);
 
         return PosReceiptItem.builder()
@@ -278,7 +288,7 @@ public class PosReceiptService {
         String time = LocalDateTime.now()
                 .format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS"));
 
-        return "R-" + time;
+        return "R-" + time + "-" + java.util.UUID.randomUUID();
     }
 
     private BigDecimal nullToZero(BigDecimal value) {

@@ -10,6 +10,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class ReceiptCreateRequest {
+    private String requestId;
     private String staffId;
     private String staffName;
     private String staffRole;

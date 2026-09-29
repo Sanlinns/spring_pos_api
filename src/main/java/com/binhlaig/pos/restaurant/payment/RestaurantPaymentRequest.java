@@ -11,6 +11,7 @@ import java.util.List;
 @Getter
 @Setter
 public class RestaurantPaymentRequest {
+    private String requestId;
 
     @JsonAlias({"orderType", "order_type"})
     @NotBlank(message = "orderType is required")

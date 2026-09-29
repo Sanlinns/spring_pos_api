@@ -23,6 +23,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -38,7 +39,7 @@ class ProductBarcodeServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ProductService(repository, storage, userRepository, new ObjectMapper(), planLimitService);
+        service = new ProductService(repository, storage, userRepository, new ObjectMapper(), planLimitService, mock(StockService.class), mock(StockRequestService.class));
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken("owner", "n/a"));
         lenient().when(userRepository.findByUsername("owner"))

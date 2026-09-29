@@ -15,8 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 
@@ -25,9 +23,6 @@ import java.util.Locale;
 @Transactional
 public class RestaurantPaymentService {
 
-    private static final DateTimeFormatter NUMBER_FORMAT =
-            DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
-
     private final RestaurantOrderRepository orderRepository;
     private final RestaurantPaymentRepository paymentRepository;
     private final RestaurantTableRepository tableRepository;
@@ -35,9 +30,17 @@ public class RestaurantPaymentService {
     private final ObjectMapper objectMapper;
     private final ProductRepository productRepository;
     private final PlanLimitService planLimitService;
+    private final com.binhlaig.pos.modules.product.StockService stockService;
+    private final com.binhlaig.pos.modules.product.StockRequestService stockRequests;
 
     public RestaurantPaymentResponse createPayment(RestaurantPaymentRequest request, String authorizationHeader) {
         RestaurantSession session = authContext.fromAuthorizationHeader(authorizationHeader);
+        if (request == null) throw new IllegalArgumentException("Payment request required");
+        return stockRequests.execute(session.shopId(), request.getRequestId(), "RESTAURANT",
+                request, RestaurantPaymentResponse.class, () -> createPaymentOnce(request, session));
+    }
+
+    private RestaurantPaymentResponse createPaymentOnce(RestaurantPaymentRequest request, RestaurantSession session) {
         planLimitService.assertCanUseRestaurant(session.shopId());
         validate(request);
 
@@ -51,12 +54,12 @@ public class RestaurantPaymentService {
 
         RestaurantOrder order = findOpenOrder(request, session)
                 .orElseGet(() -> RestaurantOrder.builder()
-                        .orderNo("RO-" + LocalDateTime.now().format(NUMBER_FORMAT))
+                        .orderNo("RO-" + java.util.UUID.randomUUID())
                         .shopId(session.shopId())
                         .shopCode(session.shopCode())
                         .build());
 
-        reduceStock(request.getItems(), session.shopId());
+        reduceStock(request.getItems(), session.shopId(), request.getRequestId());
 
         applyPaymentRequest(order, request, tableNo, session);
         order.replaceItems(request.getItems().stream()
@@ -64,10 +67,9 @@ public class RestaurantPaymentService {
                 .toList());
         RestaurantOrder savedOrder = orderRepository.save(order);
 
-        String timestamp = LocalDateTime.now().format(NUMBER_FORMAT);
         RestaurantPayment payment = RestaurantPayment.builder()
                 .order(savedOrder)
-                .paymentNo("RP-" + timestamp)
+                .paymentNo("RP-" + java.util.UUID.randomUUID())
                 .paymentMethod(required(request.getPaymentMethod(), "paymentMethod is required"))
                 .amount(requiredAmount(request.getTotal(), "total is required"))
                 .cashReceived(request.getCashReceived())
@@ -176,7 +178,8 @@ public class RestaurantPaymentService {
                 .build();
     }
 
-    private void reduceStock(List<RestaurantPaymentItemRequest> items, Long shopId) {
+    private void reduceStock(List<RestaurantPaymentItemRequest> items, Long shopId, String requestId) {
+        int line = 0;
         for (RestaurantPaymentItemRequest item : items) {
             if (item == null) {
                 throw new IllegalArgumentException("Restaurant order item is required");
@@ -211,7 +214,7 @@ public class RestaurantPaymentService {
                 );
             }
 
-            product.setProductQuantityAmount(available.subtract(requested));
+            stockService.sell(product, requested, "RESTAURANT:" + requestId + ":" + line++);
             productRepository.save(product);
         }
     }

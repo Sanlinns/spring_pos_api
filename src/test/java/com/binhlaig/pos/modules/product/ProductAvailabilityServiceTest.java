@@ -32,7 +32,7 @@ class ProductAvailabilityServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ProductService(repository, storage, userRepository, new ObjectMapper(), planLimitService);
+        service = new ProductService(repository, storage, userRepository, new ObjectMapper(), planLimitService, mock(StockService.class), mock(StockRequestService.class));
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken("owner", "n/a"));
         when(userRepository.findByUsername("owner"))
@@ -47,7 +47,7 @@ class ProductAvailabilityServiceTest {
     @Test
     void ownerCanDisableAndReenableWithoutChangingQuantity() {
         Product product = product(17L, 10L, true, "15");
-        when(repository.findByIdAndShopId(17L, 10L)).thenReturn(Optional.of(product));
+        when(repository.findByIdAndShopIdForUpdate(17L, 10L)).thenReturn(Optional.of(product));
         when(repository.save(product)).thenAnswer(invocation -> invocation.getArgument(0));
 
         ProductResponse disabled = service.updateAvailability(17L, false);
@@ -60,12 +60,12 @@ class ProductAvailabilityServiceTest {
 
     @Test
     void missingOrOtherShopProductIsNotFound() {
-        when(repository.findByIdAndShopId(99L, 10L)).thenReturn(Optional.empty());
+        when(repository.findByIdAndShopIdForUpdate(99L, 10L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.updateAvailability(99L, false))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("404 NOT_FOUND");
-        verify(repository).findByIdAndShopId(99L, 10L);
+        verify(repository).findByIdAndShopIdForUpdate(99L, 10L);
         verify(repository, never()).findById(99L);
     }
 

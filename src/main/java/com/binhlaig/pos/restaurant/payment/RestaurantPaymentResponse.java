@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 
 @Getter
 @Builder
+@lombok.extern.jackson.Jacksonized
 public class RestaurantPaymentResponse {
 
     private Long orderId;

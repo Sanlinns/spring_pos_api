@@ -39,7 +39,9 @@ class ProductBarcodeControllerTest {
     void exactBarcodeEndpointReturnsExistingProductDto() throws Exception {
         ProductResponse response = new ProductResponse(
                 1L, "COF-1", "Coffee", BigDecimal.TEN, BigDecimal.ONE, true,
-                "490100100001", "Drinks", ProductType.OTHER, BigDecimal.ZERO, null, null);
+                "490100100001", "Drinks", ProductType.OTHER, BigDecimal.ZERO, null, null,
+                BigDecimal.ONE, BigDecimal.ZERO, BigDecimal.ONE, BigDecimal.ZERO,
+                BigDecimal.ONE, BigDecimal.ZERO, java.time.Instant.EPOCH, "FROM_CREATION");
         when(service.getByBarcode("490100100001")).thenReturn(response);
 
         mockMvc.perform(get("/api/products/by-barcode/490100100001")

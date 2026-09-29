@@ -17,8 +17,12 @@ class PosReceiptAvailabilityTest {
     void unavailableProductCannotBeSavedAndStockIsUnchanged() {
         PosReceiptRepository receiptRepository = mock(PosReceiptRepository.class);
         ProductRepository productRepository = mock(ProductRepository.class);
+        com.binhlaig.pos.modules.product.StockRequestService requests = mock(com.binhlaig.pos.modules.product.StockRequestService.class);
+        when(requests.execute(any(), any(), any(), any(), any(), any()))
+                .thenAnswer(inv -> ((java.util.function.Supplier<?>) inv.getArgument(5)).get());
         PosReceiptService service = new PosReceiptService(
-                receiptRepository, productRepository, mock(PlanLimitService.class));
+                receiptRepository, productRepository, mock(PlanLimitService.class),
+                mock(com.binhlaig.pos.modules.product.StockService.class), requests);
         Product product = Product.builder().id(17L).productName("Coffee")
                 .productQuantityAmount(new BigDecimal("15")).availableForSale(false).build();
         when(productRepository.findByIdAndShopIdForUpdate(17L, 10L)).thenReturn(Optional.of(product));

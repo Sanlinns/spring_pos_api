@@ -46,6 +46,21 @@ public class Product {
     @Column(name = "product_quantity_amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal productQuantityAmount;
 
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal openingBalance;
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal totalStock;
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal soldQuantity;
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal stockCorrection;
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal historicalSoldQuantity;
+    @Column(nullable = false)
+    private Instant stockTrackingStartedAt;
+    @Column(nullable = false, length = 32)
+    private String stockTrackingBasis;
+
     @Builder.Default
     @Column(name = "available_for_sale", nullable = false)
     private Boolean availableForSale = true;

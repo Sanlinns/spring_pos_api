@@ -17,7 +17,15 @@ public record ProductResponse(
         ProductType product_type,
         BigDecimal product_discount,
         String note,
-        String image_path
+        String image_path,
+        BigDecimal totalStock,
+        BigDecimal soldQuantity,
+        BigDecimal remainingStock,
+        BigDecimal stockCorrection,
+        BigDecimal openingBalance,
+        BigDecimal historicalSoldQuantity,
+        java.time.Instant stockTrackingStartedAt,
+        String stockTrackingBasis
 ) {
     public static ProductResponse from(Product p) {
         return new ProductResponse(
@@ -32,7 +40,15 @@ public record ProductResponse(
                 p.getProductType(),
                 p.getProductDiscount(),
                 p.getNote(),
-                p.getImagePath()
+                p.getImagePath(),
+                p.getTotalStock(),
+                p.getSoldQuantity(),
+                p.getProductQuantityAmount(),
+                p.getStockCorrection(),
+                p.getOpeningBalance(),
+                p.getHistoricalSoldQuantity(),
+                p.getStockTrackingStartedAt(),
+                p.getStockTrackingBasis()
         );
     }
 }
