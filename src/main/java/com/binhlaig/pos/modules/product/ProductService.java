@@ -38,7 +38,7 @@ public class ProductService {
     // ─────────────────────────────────────────────────────────────
     @Transactional(readOnly = true)
     public List<ProductResponse> list(String q) {
-        return listMine(q, null, null, null, null);
+        return listMine(q, "enabled", null, null, null, null);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -47,6 +47,7 @@ public class ProductService {
     @Transactional(readOnly = true)
     public List<ProductResponse> listMine(
             String q,
+            String availability,
             Long createdByUserId,
             Long shopId,
             String shopCode,
@@ -64,7 +65,16 @@ public class ProductService {
                 ? repo.searchByShopId(finalShopId, keyword)
                 : repo.findByShopId(finalShopId);
 
+        String availabilityFilter = availability == null ? "enabled" : availability.trim().toLowerCase();
+        if (!List.of("enabled", "disabled", "all").contains(availabilityFilter)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "availability must be enabled, disabled, or all");
+        }
+
         return products.stream()
+                .filter(product -> product.getDeletedAt() == null)
+                .filter(product -> "all".equals(availabilityFilter)
+                        || Boolean.TRUE.equals(product.getAvailableForSale()) == "enabled".equals(availabilityFilter))
                 .map(ProductResponse::from)
                 .toList();
     }
@@ -329,13 +339,13 @@ public class ProductService {
     @Transactional
     public void delete(Long id) throws Exception {
         User currentUser = getCurrentUserOrNull();
-        Product p = findProductForCurrentShop(id, currentUser == null ? null : currentUser.getShopId());
+        Product p = repo.findByIdAndShopIdForUpdate(id, requireCurrentShopId(currentUser))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found: " + id));
 
-        // FileStorageService မှာ delete method ရှိရင် ဖွင့်သုံးနိုင်ပါတယ်။
-        // storage.delete(p.getImagePath());
-
-        throw new ResponseStatusException(HttpStatus.CONFLICT,
-                "Tracked products retain stock history; disable availability instead of deleting");
+        if (p.getDeletedAt() == null) {
+            p.setDeletedAt(java.time.Instant.now());
+            repo.save(p);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -359,6 +369,11 @@ public class ProductService {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Product not found for barcode: " + normalizedBarcode));
+
+        if (product.getDeletedAt() != null || !Boolean.TRUE.equals(product.getAvailableForSale())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    product.getProductName() + " is currently unavailable for sale");
+        }
 
         return ProductResponse.from(product);
     }
@@ -392,6 +407,7 @@ public class ProductService {
 
     private Product lockProductForCurrentShop(Long id, Long shopId) {
         return repo.findByIdAndShopIdForUpdate(id, requireCurrentShopId(shopId))
+                .filter(product -> product.getDeletedAt() == null)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found: " + id));
     }
 

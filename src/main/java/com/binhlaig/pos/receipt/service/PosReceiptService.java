@@ -136,7 +136,7 @@ public class PosReceiptService {
                 .findByIdAndShopIdForUpdate(productId, shopId)
                 .orElseThrow(() -> new IllegalArgumentException("Product not found in this shop."));
 
-        if (!Boolean.TRUE.equals(product.getAvailableForSale())) {
+        if (product.getDeletedAt() != null || !Boolean.TRUE.equals(product.getAvailableForSale())) {
             throw new IllegalStateException(
                     product.getProductName() + " is currently unavailable for sale.");
         }

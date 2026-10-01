@@ -37,6 +37,7 @@ public class ProductController {
     public List<ProductResponse> list(
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "availability", defaultValue = "enabled") String availability,
 
             // user id fields ကို String နဲ့ယူမယ်။ "user3" လို value လာလည်း crash မဖြစ်တော့ပါ။
             @RequestParam(value = "createdByUserId", required = false) String createdByUserId,
@@ -51,7 +52,7 @@ public class ProductController {
             @RequestParam(value = "shop_code", required = false) String shopCodeSnake
     ) {
         shopFeatureService.requireFeatureFromAuthorization(authorization, FeatureKey.PRODUCTS);
-        return service.listMine(q, null, null, null, authorization);
+        return service.listMine(q, availability, null, null, null, authorization);
     }
 
     @GetMapping(value = "/by-barcode/{barcode}", produces = MediaType.APPLICATION_JSON_VALUE)

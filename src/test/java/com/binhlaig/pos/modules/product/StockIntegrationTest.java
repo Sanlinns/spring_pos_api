@@ -62,11 +62,13 @@ class StockIntegrationTest {
     @Autowired StockMovementRepository movements;
     @Autowired StockRequestRepository requests;
     @Autowired PosReceiptRepository receipts;
+    @Autowired RestaurantOrderRepository orders;
     @Autowired StockService stock;
     @Autowired ProductService productService;
     @Autowired PosReceiptService pos;
     @Autowired RestaurantPaymentService restaurant;
     @Autowired PlatformTransactionManager transactions;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @MockitoBean PlanLimitService limits;
     @MockitoBean FileStorageService storage;
     @MockitoBean UserRepository users;
@@ -97,6 +99,78 @@ class StockIntegrationTest {
     }
     private ReceiptResponse checkout(ReceiptCreateRequest request) {
         return pos.createReceipt(request, AuthenticatedUserInfo.builder().shopId(10L).build());
+    }
+
+    @Test void softDeletionMigrationRetainsExistingRowsAsActive() throws Exception {
+        String migration = java.nio.file.Files.readString(java.nio.file.Path.of(
+                "src/main/resources/db/migration/V27__product_soft_deletion.sql"));
+        new TransactionTemplate(transactions).executeWithoutResult(tx -> {
+            // The temp table shadows products only on this connection and disappears at commit.
+            jdbc.execute("CREATE TEMP TABLE products (id BIGINT, shop_id BIGINT, product_quantity_amount NUMERIC) ON COMMIT DROP");
+            jdbc.execute("INSERT INTO products VALUES (1, 10, 15)");
+            jdbc.execute(migration);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM products WHERE deleted_at IS NULL AND product_quantity_amount = 15", Long.class)).isEqualTo(1L);
+        });
+    }
+
+    @Test void softDeletionPreservesReceiptAndStockHistoryAndExcludesActiveQueries() throws Exception {
+        Product p = create("10");
+        var originalSale = sale(p, 2);
+        var receipt = checkout(originalSale);
+        long historyCount = movements.findAll().stream().filter(m -> m.getProductId().equals(p.getId())).count();
+        long activeCount = products.countByShopId(10L);
+        when(users.findByUsername("stock-test")).thenReturn(Optional.of(User.builder().shopId(11L).build()));
+        assertThatThrownBy(() -> productService.delete(p.getId())).hasMessageContaining("404");
+        assertThat(products.findById(p.getId()).orElseThrow().getDeletedAt()).isNull();
+        when(users.findByUsername("stock-test")).thenReturn(Optional.of(User.builder().shopId(10L).build()));
+        productService.delete(p.getId());
+        var deletedAt = products.findById(p.getId()).orElseThrow().getDeletedAt();
+        productService.delete(p.getId());
+        Product archived = products.findById(p.getId()).orElseThrow();
+        assertThat(archived.getDeletedAt()).isEqualTo(deletedAt);
+        assertThat(archived.getProductQuantityAmount()).isEqualByComparingTo("8");
+        assertThat(products.countByShopId(10L)).isEqualTo(activeCount - 1);
+        assertThat(products.findByShopId(10L)).extracting(Product::getId).doesNotContain(p.getId());
+        assertThat(products.searchByShopId(10L, p.getSku())).isEmpty();
+        assertThat(productService.listMine(null, "all", null, null, null, null))
+                .extracting(com.binhlaig.pos.modules.product.dto.ProductResponse::id).doesNotContain(p.getId());
+        assertThat(movements.findAll().stream().filter(m -> m.getProductId().equals(p.getId())).count()).isEqualTo(historyCount);
+        assertThat(receipts.findById(receipt.getId())).isPresent();
+        assertThat(pos.getReceiptByNo(receipt.getReceiptNo(), AuthenticatedUserInfo.builder().shopId(10L).build())
+                .getItems()).extracting(ReceiptItemResponse::getProductName).containsExactly("Test");
+        // Replay returns the historical snapshot, while a new sale is rejected.
+        assertThat(checkout(originalSale).getId()).isEqualTo(receipt.getId());
+        assertThatThrownBy(() -> checkout(sale(p, 1))).hasMessageContaining("unavailable for sale");
+        assertThat(productService.getById(p.getId()).remainingStock()).isEqualByComparingTo("8");
+    }
+
+    @Test void archivedProductsCannotStartRestaurantSalesButExistingOrdersComplete() throws Exception {
+        Product p = create("10");
+        RestaurantPaymentItemRequest item = new RestaurantPaymentItemRequest();
+        item.setProductId(p.getId()); item.setQuantity(2); item.setItemName("Test");
+        item.setUnitPrice(BigDecimal.ONE); item.setTotalPrice(BigDecimal.TWO);
+        RestaurantPaymentRequest request = new RestaurantPaymentRequest();
+        request.setRequestId(UUID.randomUUID().toString()); request.setOrderType("TAKEAWAY");
+        request.setPaymentMethod("CASH"); request.setTotal(BigDecimal.TWO); request.setItems(List.of(item));
+        RestaurantOrder order = new TransactionTemplate(transactions).execute(tx -> {
+            RestaurantOrder existing = RestaurantOrder.builder().orderNo(UUID.randomUUID().toString())
+                    .shopId(10L).shopCode("TEST").tableId(778L).status("OPEN").orderType("TAKEAWAY").total(BigDecimal.TWO).build();
+            existing.addItem(RestaurantOrderItem.builder().productId(p.getId()).itemName("Test")
+                    .quantity(2).unitPrice(BigDecimal.ONE).totalPrice(BigDecimal.TWO).build());
+            return orders.saveAndFlush(existing);
+        });
+        productService.delete(p.getId());
+        assertThatThrownBy(() -> restaurant.createPayment(request, "test")).hasMessageContaining("unavailable for sale");
+        request.setTableId(778L);
+        when(tables.findByIdAndShopId(778L, 10L)).thenReturn(Optional.of(
+                com.binhlaig.pos.restaurant.entity.RestaurantTable.builder().id(778L).tableNo("TEST").shopId(10L).build()));
+        item.setQuantity(3);
+        assertThatThrownBy(() -> restaurant.createPayment(request, "test")).hasMessageContaining("unavailable for sale");
+        item.setQuantity(2);
+        var payment = restaurant.createPayment(request, "test");
+        assertThat(payment.getOrderId()).isEqualTo(order.getId());
+        assertThat(products.findById(p.getId()).orElseThrow().getProductQuantityAmount()).isEqualByComparingTo("8");
+        assertThat(restaurant.getShopPayments("test")).extracting(RestaurantPaymentListResponse::getOrderNo).contains(order.getOrderNo());
     }
 
     @Test void createApiInitializesTrackingAndEditRejectsOverwrite() throws Exception {

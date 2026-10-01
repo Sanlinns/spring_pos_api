@@ -128,30 +128,37 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     Optional<Product> findBySkuAndShopId(String sku, Long shopId);
 
     // Search
-    List<Product> findByProductNameContainingIgnoreCase(String productName);
+    @Query("SELECT p FROM Product p WHERE p.deletedAt IS NULL AND LOWER(p.productName) LIKE LOWER(CONCAT('%', :productName, '%'))")
+    List<Product> findByProductNameContainingIgnoreCase(@Param("productName") String productName);
 
     // Current user created products
-    List<Product> findByCreatedByUserId(Long createdByUserId);
+    @Query("SELECT p FROM Product p WHERE p.deletedAt IS NULL AND p.createdByUserId = :createdByUserId")
+    List<Product> findByCreatedByUserId(@Param("createdByUserId") Long createdByUserId);
 
+    @Query("SELECT p FROM Product p WHERE p.deletedAt IS NULL AND p.createdByUserId = :createdByUserId AND LOWER(p.productName) LIKE LOWER(CONCAT('%', :productName, '%'))")
     List<Product> findByCreatedByUserIdAndProductNameContainingIgnoreCase(
-            Long createdByUserId,
-            String productName
+            @Param("createdByUserId") Long createdByUserId,
+            @Param("productName") String productName
     );
 
     // Current shop products by shop_id
-    List<Product> findByShopId(Long shopId);
+    @Query("SELECT p FROM Product p WHERE p.shopId = :shopId AND p.deletedAt IS NULL")
+    List<Product> findByShopId(@Param("shopId") Long shopId);
 
-    long countByShopId(Long shopId);
+    @Query("SELECT COUNT(p) FROM Product p WHERE p.shopId = :shopId AND p.deletedAt IS NULL")
+    long countByShopId(@Param("shopId") Long shopId);
 
+    @Query("SELECT p FROM Product p WHERE p.deletedAt IS NULL AND p.shopId = :shopId AND LOWER(p.productName) LIKE LOWER(CONCAT('%', :productName, '%'))")
     List<Product> findByShopIdAndProductNameContainingIgnoreCase(
-            Long shopId,
-            String productName
+            @Param("shopId") Long shopId,
+            @Param("productName") String productName
     );
 
     @Query("""
            SELECT p
            FROM Product p
            WHERE p.shopId = :shopId
+             AND p.deletedAt IS NULL
              AND (
                  LOWER(p.productName) LIKE LOWER(CONCAT('%', :query, '%'))
                  OR LOWER(p.sku) LIKE LOWER(CONCAT('%', :query, '%'))

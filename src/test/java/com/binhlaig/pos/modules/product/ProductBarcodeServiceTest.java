@@ -89,11 +89,11 @@ class ProductBarcodeServiceTest {
                 product(2L, 10L, "222", "Tea", "TEA-1"));
         when(repository.searchByShopId(10L, "COF")).thenReturn(matches);
 
-        assertThat(service.listMine(" COF ", null, null, null, null)).hasSize(2);
+        assertThat(service.listMine(" COF ", "all", null, null, null, null)).hasSize(2);
         verify(repository).searchByShopId(10L, "COF");
 
         when(repository.searchByShopId(10L, "222")).thenReturn(List.of(matches.get(1)));
-        assertThat(service.listMine("222", null, null, null, null))
+        assertThat(service.listMine("222", "all", null, null, null, null))
                 .extracting(ProductResponse::barcode)
                 .containsExactly("222");
         verify(repository).searchByShopId(10L, "222");

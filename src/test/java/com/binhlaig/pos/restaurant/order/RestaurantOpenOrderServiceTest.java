@@ -121,8 +121,9 @@ class RestaurantOpenOrderServiceTest {
         assertThat(response.getPaymentMethod()).isNull();
     }
 
-    @Test
-    void unavailableProductCannotBeSavedAsOpenOrder() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void unavailableOrDeletedProductCannotBeSavedAsOpenOrder(boolean deleted) {
         RestaurantOpenOrderItemRequest item = new RestaurantOpenOrderItemRequest();
         item.setProductId(17L);
         item.setItemName("Coffee");
@@ -135,8 +136,8 @@ class RestaurantOpenOrderServiceTest {
         request.setTotal(BigDecimal.TEN);
         request.setItems(List.of(item));
         Product product = Product.builder().id(17L).productName("Coffee")
-                .productQuantityAmount(new BigDecimal("15")).availableForSale(false).build();
-        when(productRepository.findByIdAndShopId(17L, SHOP_ID)).thenReturn(Optional.of(product));
+                .productQuantityAmount(new BigDecimal("15")).availableForSale(deleted).deletedAt(deleted ? java.time.Instant.now() : null).build();
+        when(productRepository.findByIdAndShopIdForUpdate(17L, SHOP_ID)).thenReturn(Optional.of(product));
 
         assertThatThrownBy(() -> service.createOrUpdateOpenOrder(request, AUTHORIZATION))
                 .isInstanceOf(IllegalStateException.class)

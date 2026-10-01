@@ -13,8 +13,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 class PosReceiptAvailabilityTest {
-    @Test
-    void unavailableProductCannotBeSavedAndStockIsUnchanged() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void unavailableOrDeletedProductCannotBeSavedAndStockIsUnchanged(boolean deleted) {
         PosReceiptRepository receiptRepository = mock(PosReceiptRepository.class);
         ProductRepository productRepository = mock(ProductRepository.class);
         com.binhlaig.pos.modules.product.StockRequestService requests = mock(com.binhlaig.pos.modules.product.StockRequestService.class);
@@ -24,7 +25,7 @@ class PosReceiptAvailabilityTest {
                 receiptRepository, productRepository, mock(PlanLimitService.class),
                 mock(com.binhlaig.pos.modules.product.StockService.class), requests);
         Product product = Product.builder().id(17L).productName("Coffee")
-                .productQuantityAmount(new BigDecimal("15")).availableForSale(false).build();
+                .productQuantityAmount(new BigDecimal("15")).availableForSale(deleted).deletedAt(deleted ? java.time.Instant.now() : null).build();
         when(productRepository.findByIdAndShopIdForUpdate(17L, 10L)).thenReturn(Optional.of(product));
         ReceiptCreateRequest request = ReceiptCreateRequest.builder().staffId("1").paymentMethod("CASH")
                 .items(List.of(ReceiptItemRequest.builder().productId("17").qty(1).build())).build();

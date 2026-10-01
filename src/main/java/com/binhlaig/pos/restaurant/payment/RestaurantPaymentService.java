@@ -59,7 +59,7 @@ public class RestaurantPaymentService {
                         .shopCode(session.shopCode())
                         .build());
 
-        reduceStock(request.getItems(), session.shopId(), request.getRequestId());
+        reduceStock(request.getItems(), session.shopId(), request.getRequestId(), order);
 
         applyPaymentRequest(order, request, tableNo, session);
         order.replaceItems(request.getItems().stream()
@@ -178,7 +178,12 @@ public class RestaurantPaymentService {
                 .build();
     }
 
-    private void reduceStock(List<RestaurantPaymentItemRequest> items, Long shopId, String requestId) {
+    private void reduceStock(List<RestaurantPaymentItemRequest> items, Long shopId, String requestId, RestaurantOrder order) {
+        // Existing orders may complete, but archived products cannot be added or increased.
+        java.util.Map<Long, Integer> existingQuantities = new java.util.HashMap<>();
+        if (order.getId() != null) {
+            order.getItems().forEach(item -> existingQuantities.merge(item.getProductId(), item.getQuantity(), Integer::sum));
+        }
         int line = 0;
         for (RestaurantPaymentItemRequest item : items) {
             if (item == null) {
@@ -198,6 +203,14 @@ public class RestaurantPaymentService {
             Product product = productRepository
                     .findByIdAndShopIdForUpdate(productId, shopId)
                     .orElseThrow(() -> new IllegalArgumentException("Product not found in this shop."));
+
+            if (product.getDeletedAt() != null) {
+                int remaining = existingQuantities.getOrDefault(productId, 0) - cartQty;
+                if (remaining < 0) {
+                    throw new IllegalStateException(product.getProductName() + " is currently unavailable for sale.");
+                }
+                existingQuantities.put(productId, remaining);
+            }
 
             BigDecimal available = zeroIfNull(product.getProductQuantityAmount());
             BigDecimal requested = BigDecimal.valueOf(cartQty);

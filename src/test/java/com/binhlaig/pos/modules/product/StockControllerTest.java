@@ -25,7 +25,7 @@ class StockControllerTest {
     }
 
     @Test void listExposesTrackingContractAndRemainingAlias() throws Exception {
-        when(service.listMine(any(), any(), any(), any(), any())).thenReturn(List.of(response()));
+        when(service.listMine(any(), any(), any(), any(), any(), any())).thenReturn(List.of(response()));
         mvc.perform(get("/api/products")).andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].totalStock").value(150))
                 .andExpect(jsonPath("$[0].soldQuantity").value(30))

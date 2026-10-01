@@ -431,9 +431,9 @@ public class RestaurantOpenOrderService {
             if (item.getProductId() == null) {
                 throw new IllegalArgumentException("productId is required");
             }
-            Product product = productRepository.findByIdAndShopId(item.getProductId(), shopId)
+            Product product = productRepository.findByIdAndShopIdForUpdate(item.getProductId(), shopId)
                     .orElseThrow(() -> new IllegalArgumentException("Product not found in this shop."));
-            if (!Boolean.TRUE.equals(product.getAvailableForSale())) {
+            if (product.getDeletedAt() != null || !Boolean.TRUE.equals(product.getAvailableForSale())) {
                 throw new IllegalStateException(
                         product.getProductName() + " is currently unavailable for sale.");
             }
