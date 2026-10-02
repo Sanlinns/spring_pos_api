@@ -25,7 +25,7 @@ import java.util.List;
 public class ReceiptSettingService {
 
     private final ReceiptSettingRepository receiptSettingRepository;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final com.binhlaig.pos.auth.AccountContextService accounts;
 
     @Transactional(readOnly = true)
     public ReceiptSettingResponse getMyShopSettingByToken(String authorizationHeader) {
@@ -57,6 +57,7 @@ public class ReceiptSettingService {
             String authorizationHeader,
             ReceiptSettingRequest request
     ) {
+        accounts.requireOwner(org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication());
         TokenShopInfo shopInfo = getShopInfoFromToken(authorizationHeader);
 
         ReceiptSetting setting = receiptSettingRepository
@@ -105,89 +106,9 @@ public class ReceiptSettingService {
         return toResponse(saved);
     }
 
-    private TokenShopInfo getShopInfoFromToken(String authorizationHeader) {
-        String token = extractBearer(authorizationHeader);
-
-        try {
-            String[] parts = token.split("\\.");
-
-            if (parts.length < 2) {
-                throw new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED,
-                        "Invalid token format"
-                );
-            }
-
-            String payloadJson = new String(
-                    Base64.getUrlDecoder().decode(parts[1]),
-                    StandardCharsets.UTF_8
-            );
-
-            JsonNode payload = objectMapper.readTree(payloadJson);
-
-            Long shopId = readLong(payload, "shopId");
-            if (shopId == null) shopId = readLong(payload, "shop_id");
-
-            String shopCode = readText(payload, "shopCode");
-            if (shopCode == null || shopCode.isBlank()) {
-                shopCode = readText(payload, "shop_code");
-            }
-
-            if (shopId == null) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "Token ထဲမှာ shopId မပါပါ။ ပြန် login ဝင်ပါ။"
-                );
-            }
-
-            return new TokenShopInfo(shopId, shopCode);
-        } catch (ResponseStatusException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED,
-                    "Token ဖတ်လို့မရပါ။ ပြန် login ဝင်ပါ။"
-            );
-        }
-    }
-
-    private String extractBearer(String authorizationHeader) {
-        if (authorizationHeader == null || authorizationHeader.isBlank()) {
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED,
-                    "Authorization header မပါပါ။"
-            );
-        }
-
-        if (authorizationHeader.startsWith("Bearer ")) {
-            return authorizationHeader.substring(7).trim();
-        }
-
-        return authorizationHeader.trim();
-    }
-
-    private Long readLong(JsonNode node, String field) {
-        JsonNode value = node.get(field);
-
-        if (value == null || value.isNull()) return null;
-
-        if (value.isNumber()) return value.asLong();
-
-        if (value.isTextual()) {
-            try {
-                return Long.parseLong(value.asText());
-            } catch (NumberFormatException ignored) {
-                return null;
-            }
-        }
-
-        return null;
-    }
-
-    private String readText(JsonNode node, String field) {
-        JsonNode value = node.get(field);
-        if (value == null || value.isNull()) return null;
-        return value.asText();
+    private TokenShopInfo getShopInfoFromToken(String ignored) {
+        var account = accounts.resolve(org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication());
+        return new TokenShopInfo(account.getShopId(), account.getShopCode());
     }
 
     private ReceiptSettingResponse toResponse(ReceiptSetting setting) {

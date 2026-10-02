@@ -33,6 +33,9 @@ public class ReceiptListResponse {
     private String shopAddress;
 
     private Long createdByUserId;
+
+    private Long createdByStaffId;
+
     private String createdByUsername;
     private String createdByName;
     private String createdByRole;

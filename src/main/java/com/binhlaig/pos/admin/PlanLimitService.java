@@ -35,6 +35,7 @@ public class PlanLimitService {
     private final ProductRepository productRepository;
     private final PosReceiptRepository receiptRepository;
     private final ShopFeatureRepository shopFeatureRepository;
+    private final com.binhlaig.pos.auth.session.SessionStore sessions;
 
     @Transactional(readOnly = true)
     public SubscriptionPlan getCurrentPlan(Long shopId) {
@@ -65,7 +66,9 @@ public class PlanLimitService {
 
     @Transactional
     public ShopUsageMonthly getCurrentUsage(Long shopId) {
-        return getOrCreateCurrentMonthUsage(shopId);
+        ShopUsageMonthly usage = getOrCreateCurrentMonthUsage(shopId);
+        usage.setDeviceCount(sessions.activeDevices(shopId));
+        return usage;
     }
 
     @Transactional
@@ -81,9 +84,7 @@ public class PlanLimitService {
         if (usage.getStorageUsedMb() == null) {
             usage.setStorageUsedMb(0);
         }
-        if (usage.getDeviceCount() == null) {
-            usage.setDeviceCount(0);
-        }
+        usage.setDeviceCount(sessions.activeDevices(shopId));
         return usageRepository.save(usage);
     }
 
@@ -94,7 +95,7 @@ public class PlanLimitService {
         usage.setProductCount(0);
         usage.setReceiptCount(0);
         usage.setStorageUsedMb(0);
-        usage.setDeviceCount(0);
+        usage.setDeviceCount(sessions.activeDevices(shopId));
         return usageRepository.save(usage);
     }
 
@@ -191,7 +192,7 @@ public class PlanLimitService {
                         .productCount(0)
                         .receiptCount(0)
                         .storageUsedMb(0)
-                        .deviceCount(0)
+                        .deviceCount(sessions.activeDevices(shopId))
                         .build()));
     }
 

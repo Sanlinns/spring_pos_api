@@ -33,6 +33,7 @@ class PasswordResetServiceTest {
     @Mock UserRepository userRepository;
     @Mock PasswordResetTokenRepository tokenRepository;
     @Mock PasswordResetEmailService emailService;
+    @Mock com.binhlaig.pos.auth.session.SessionService sessions;
 
     private PasswordEncoder passwordEncoder;
     private PasswordResetService service;
@@ -41,7 +42,7 @@ class PasswordResetServiceTest {
     void setUp() {
         passwordEncoder = new BCryptPasswordEncoder(4);
         service = new PasswordResetService(
-                userRepository, tokenRepository, passwordEncoder, emailService);
+                userRepository, tokenRepository, passwordEncoder, emailService, sessions);
     }
 
     @Test
@@ -117,6 +118,7 @@ class PasswordResetServiceTest {
         when(tokenRepository.findByTokenHashAndUsedFalseAndExpiresAtAfter(
                 eq(PasswordResetService.hashToken(rawToken)), any(OffsetDateTime.class)))
                 .thenReturn(Optional.of(token));
+        lenient().when(tokenRepository.findByTokenHash(token.getTokenHash())).thenReturn(Optional.of(token));
 
         PasswordResetResponse response = service.resetPassword(
                 new ResetPasswordRequest(rawToken, "NewPassword123!", "NewPassword123!"));
@@ -126,6 +128,8 @@ class PasswordResetServiceTest {
         assertThat(passwordEncoder.matches("NewPassword123!", user.getPassword())).isTrue();
         assertThat(token.isUsed()).isTrue();
         verify(userRepository).save(user);
+        verify(sessions).lockAccount(user);
+        verify(sessions).revokeUser(user);
         verify(tokenRepository).saveAndFlush(token);
         verify(tokenRepository).invalidateUnusedByUserId(7L);
         verify(emailService).sendPasswordChangedEmail("owner@example.com");
@@ -143,6 +147,7 @@ class PasswordResetServiceTest {
         when(tokenRepository.findByTokenHashAndUsedFalseAndExpiresAtAfter(
                 eq(PasswordResetService.hashToken(rawToken)), any(OffsetDateTime.class)))
                 .thenReturn(Optional.of(token), Optional.empty());
+        when(tokenRepository.findByTokenHash(token.getTokenHash())).thenReturn(Optional.of(token));
 
         service.resetPassword(new ResetPasswordRequest(
                 rawToken, "NewPassword123!", "NewPassword123!"));
@@ -171,6 +176,7 @@ class PasswordResetServiceTest {
         when(tokenRepository.findByTokenHashAndUsedFalseAndExpiresAtAfter(
                 eq(PasswordResetService.hashToken(rawToken)), any(OffsetDateTime.class)))
                 .thenReturn(Optional.of(token));
+        lenient().when(tokenRepository.findByTokenHash(token.getTokenHash())).thenReturn(Optional.of(token));
 
         var response = service.validateResetToken(rawToken);
 
@@ -236,6 +242,7 @@ class PasswordResetServiceTest {
         when(tokenRepository.findByTokenHashAndUsedFalseAndExpiresAtAfter(
                 eq(PasswordResetService.hashToken(rawToken)), any(OffsetDateTime.class)))
                 .thenReturn(Optional.of(token), Optional.empty(), Optional.empty());
+        when(tokenRepository.findByTokenHash(token.getTokenHash())).thenReturn(Optional.of(token));
 
         service.resetPassword(new ResetPasswordRequest(
                 rawToken, "NewPassword123!", "NewPassword123!"));
@@ -260,9 +267,6 @@ class PasswordResetServiceTest {
     }
 
     private void rejectUnavailableToken(String rawToken) {
-        when(tokenRepository.findByTokenHashAndUsedFalseAndExpiresAtAfter(
-                eq(PasswordResetService.hashToken(rawToken)), any(OffsetDateTime.class)))
-                .thenReturn(Optional.empty());
         assertInvalidToken(rawToken);
     }
 
@@ -293,6 +297,7 @@ class PasswordResetServiceTest {
         when(tokenRepository.findByTokenHashAndUsedFalseAndExpiresAtAfter(
                 eq(PasswordResetService.hashToken(rawToken)), any(OffsetDateTime.class)))
                 .thenReturn(Optional.of(token));
+        lenient().when(tokenRepository.findByTokenHash(token.getTokenHash())).thenReturn(Optional.of(token));
         doThrow(new EmailDeliveryException(new RuntimeException("provider failure")))
                 .when(emailService).sendPasswordChangedEmail("owner@example.com");
 

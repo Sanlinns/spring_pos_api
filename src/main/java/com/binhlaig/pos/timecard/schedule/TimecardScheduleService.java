@@ -194,9 +194,7 @@ public class TimecardScheduleService {
         }
 
         if (shopCode == null || shopCode.isBlank()) {
-            User user = userRepository.findByUsername(username)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
-            shopCode = user.getShopCode();
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Shop context missing" );
         }
 
         if (shopCode == null || shopCode.isBlank()) {

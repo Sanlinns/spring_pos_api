@@ -180,6 +180,11 @@ public class PosReceipt {
     @Column(name = "created_by_user_id")
     private Long createdByUserId;
 
+    @Column(name = "created_by_staff_id")
+    private Long createdByStaffId;
+
+
+
     @Column(name = "created_by_username")
     private String createdByUsername;
 

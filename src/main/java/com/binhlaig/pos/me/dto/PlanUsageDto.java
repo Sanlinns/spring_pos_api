@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PlanUsageDto {
+    private Integer deviceCount;
     private Integer staffCount;
     private Integer productCount;
     private Integer receiptCount;

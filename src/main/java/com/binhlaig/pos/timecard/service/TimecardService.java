@@ -243,6 +243,8 @@
 
 
 package com.binhlaig.pos.timecard.service;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.binhlaig.pos.auth.JwtService;
 import com.binhlaig.pos.staff.entity.Staff;
@@ -430,9 +432,7 @@ public class TimecardService {
         }
 
         if (shopCode == null || shopCode.isBlank()) {
-            User user = userRepository.findByUsername(username)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
-            shopCode = user.getShopCode();
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Shop context missing" );
         }
 
         return new SessionInfo(username, shopId, shopCode);

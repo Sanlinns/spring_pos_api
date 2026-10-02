@@ -4,7 +4,7 @@ import com.binhlaig.pos.admin.PlanLimitService;
 import com.binhlaig.pos.modules.product.dto.ProductResponse;
 import com.binhlaig.pos.modules.product.dto.StockOperationRequest;
 import com.binhlaig.pos.storage.FileStorageService;
-import com.binhlaig.pos.user.User;
+import com.binhlaig.pos.auth.AccountContextService;
 import com.binhlaig.pos.user.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +27,7 @@ public class ProductService {
 
     private final ProductRepository repo;
     private final FileStorageService storage;
-    private final UserRepository userRepository;
+    private final AccountContextService accounts;
     private final ObjectMapper objectMapper;
     private final PlanLimitService planLimitService;
     private final StockService stockService;
@@ -53,7 +53,7 @@ public class ProductService {
             String shopCode,
             String authorization
     ) {
-        User currentUser = getCurrentUserOrNull();
+        AccountContextService.Context currentUser = getCurrentUserOrNull();
         Long finalShopId = requireCurrentShopId(currentUser);
 
         List<Product> products;
@@ -108,7 +108,7 @@ public class ProductService {
         String finalSku = cleanRequired(sku, "SKU");
         String finalProductName = cleanRequired(productName, "Product name");
 
-        User currentUser = getCurrentUserOrNull();
+        AccountContextService.Context currentUser = getCurrentUserOrNull();
         Long finalShopId = requireCurrentShopId(currentUser);
         String finalShopCode = cleanNullable(currentUser.getShopCode());
 
@@ -121,9 +121,9 @@ public class ProductService {
             imagePath = storage.saveProductImage(image);
         }
 
-        Long finalCreatedByUserId = currentUser.getId();
+        Long finalCreatedByUserId = currentUser.getUserId();
         String finalCreatedByUsername = currentUser.getUsername();
-        String finalCreatedByName = currentUser.getUsername();
+        String finalCreatedByName = currentUser.getName();
         String finalCreatedByRole = getCurrentRoleOrDefault();
 
         /*
@@ -159,6 +159,7 @@ public class ProductService {
 
                 // owner fields
                 .createdByUserId(finalCreatedByUserId)
+                .createdByStaffId(currentUser.getStaffId())
                 .createdByUsername(finalCreatedByUsername)
                 .createdByName(finalCreatedByName)
                 .createdByRole(finalCreatedByRole)
@@ -235,7 +236,7 @@ public class ProductService {
             String authorization
     ) throws Exception {
 
-        User currentUser = getCurrentUserOrNull();
+        AccountContextService.Context currentUser = getCurrentUserOrNull();
         Long currentShopId = currentUser == null ? null : currentUser.getShopId();
         if (productQuantityAmount != null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -338,7 +339,7 @@ public class ProductService {
     // ─────────────────────────────────────────────────────────────
     @Transactional
     public void delete(Long id) throws Exception {
-        User currentUser = getCurrentUserOrNull();
+        AccountContextService.Context currentUser = getCurrentUserOrNull();
         Product p = repo.findByIdAndShopIdForUpdate(id, requireCurrentShopId(currentUser))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found: " + id));
 
@@ -353,7 +354,7 @@ public class ProductService {
     // ─────────────────────────────────────────────────────────────
     @Transactional(readOnly = true)
     public ProductResponse getById(Long id) {
-        User currentUser = getCurrentUserOrNull();
+        AccountContextService.Context currentUser = getCurrentUserOrNull();
         Product product = findProductForCurrentShop(id, currentUser == null ? null : currentUser.getShopId());
 
         return ProductResponse.from(product);
@@ -362,7 +363,7 @@ public class ProductService {
     @Transactional(readOnly = true)
     public ProductResponse getByBarcode(String barcode) {
         String normalizedBarcode = cleanRequired(barcode, "Barcode");
-        User currentUser = getCurrentUserOrNull();
+        AccountContextService.Context currentUser = getCurrentUserOrNull();
         Long shopId = requireCurrentShopId(currentUser);
 
         Product product = repo.findByBarcodeAndShopId(normalizedBarcode, shopId)
@@ -380,7 +381,7 @@ public class ProductService {
 
     @Transactional
     public ProductResponse updateAvailability(Long productId, boolean availableForSale) {
-        User currentUser = getCurrentUserOrNull();
+        AccountContextService.Context currentUser = getCurrentUserOrNull();
         Product product = lockProductForCurrentShop(
                 productId, currentUser == null ? null : currentUser.getShopId());
         product.setAvailableForSale(availableForSale);
@@ -418,7 +419,7 @@ public class ProductService {
                         HttpStatus.NOT_FOUND, "Product not found: " + id));
     }
 
-    private Long requireCurrentShopId(User user) {
+    private Long requireCurrentShopId(AccountContextService.Context user) {
         if (user == null || user.getShopId() == null) {
             throw new IllegalArgumentException("Current shop is required");
         }
@@ -435,16 +436,8 @@ public class ProductService {
     // ─────────────────────────────────────────────────────────────
     // CURRENT USER
     // ─────────────────────────────────────────────────────────────
-    private User getCurrentUserOrNull() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-
-        if (auth == null || auth.getName() == null || auth.getName().isBlank()) {
-            return null;
-        }
-
-        String username = auth.getName();
-
-        return userRepository.findByUsername(username).orElse(null);
+    private AccountContextService.Context getCurrentUserOrNull() {
+        return accounts.resolve(SecurityContextHolder.getContext().getAuthentication());
     }
 
     private String getCurrentRoleOrDefault() {
@@ -476,12 +469,14 @@ public class ProductService {
         /*
          * frontend ကပို့တဲ့ JSON ရှိပြီး backend current user မတွေ့ရင် fallback သုံးမယ်။
          */
-        if (userId == null && fallbackCreatedBy != null && !fallbackCreatedBy.trim().isEmpty()) {
-            return fallbackCreatedBy.trim();
-        }
+
 
         try {
             Map<String, Object> payload = new LinkedHashMap<>();
+            var creator = getCurrentUserOrNull();
+            payload.put("accountType", creator.principal().accountType().name());
+            payload.put("accountId", creator.principal().accountId());
+            payload.put("staffId", creator.getStaffId());
             payload.put("id", userId);
             payload.put("userId", userId);
             payload.put("username", username);

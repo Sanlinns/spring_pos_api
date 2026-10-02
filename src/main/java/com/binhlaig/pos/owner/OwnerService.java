@@ -14,7 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
+import com.binhlaig.pos.auth.AccountPrincipal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -135,10 +135,7 @@ public class OwnerService {
     }
 
     private User resolveOwner(Authentication authentication) {
-        String username = authenticatedUsername(authentication);
-        User owner = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED,
-                        "Current user not found"));
+        User owner = AccountPrincipal.require(authentication).requireUser(userRepository);
         if (owner.getRole() != Role.ADMIN) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "Only owner ADMIN users can manage the owner profile");
@@ -147,21 +144,6 @@ public class OwnerService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Owner has no shop");
         }
         return owner;
-    }
-
-    private String authenticatedUsername(Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
-        }
-        Object principal = authentication.getPrincipal();
-        String username = principal instanceof UserDetails details
-                ? details.getUsername()
-                : authentication.getName();
-        if (username == null || username.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
-                    "Authenticated username not found");
-        }
-        return username;
     }
 
     private Shop resolveShop(User owner) {

@@ -71,13 +71,13 @@ class StockIntegrationTest {
     @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @MockitoBean PlanLimitService limits;
     @MockitoBean FileStorageService storage;
-    @MockitoBean UserRepository users;
+    @MockitoBean com.binhlaig.pos.auth.AccountContextService accounts;
     @MockitoBean RestaurantAuthContext restaurantAuth;
     @MockitoBean RestaurantTableRepository tables;
 
     @BeforeEach void login() {
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("stock-test", "n/a"));
-        when(users.findByUsername("stock-test")).thenReturn(Optional.of(User.builder().id(1L).username("stock-test").shopId(10L).build()));
+        when(accounts.resolve(org.mockito.ArgumentMatchers.any())).thenReturn(context(10L));
         when(restaurantAuth.fromAuthorizationHeader("test")).thenReturn(new RestaurantSession(10L, "TEST"));
     }
     @AfterEach void logout() { SecurityContextHolder.clearContext(); }
@@ -119,10 +119,10 @@ class StockIntegrationTest {
         var receipt = checkout(originalSale);
         long historyCount = movements.findAll().stream().filter(m -> m.getProductId().equals(p.getId())).count();
         long activeCount = products.countByShopId(10L);
-        when(users.findByUsername("stock-test")).thenReturn(Optional.of(User.builder().shopId(11L).build()));
+        when(accounts.resolve(org.mockito.ArgumentMatchers.any())).thenReturn(context(11L));
         assertThatThrownBy(() -> productService.delete(p.getId())).hasMessageContaining("404");
         assertThat(products.findById(p.getId()).orElseThrow().getDeletedAt()).isNull();
-        when(users.findByUsername("stock-test")).thenReturn(Optional.of(User.builder().shopId(10L).build()));
+        when(accounts.resolve(org.mockito.ArgumentMatchers.any())).thenReturn(context(10L));
         productService.delete(p.getId());
         var deletedAt = products.findById(p.getId()).orElseThrow().getDeletedAt();
         productService.delete(p.getId());
@@ -269,7 +269,7 @@ class StockIntegrationTest {
 
     @Test void stockOperationsCannotAccessAnotherShopAndRequireRequestId() {
         Product p = create("10");
-        when(users.findByUsername("stock-test")).thenReturn(Optional.of(User.builder().shopId(11L).build()));
+        when(accounts.resolve(org.mockito.ArgumentMatchers.any())).thenReturn(context(11L));
         assertThatThrownBy(() -> productService.operateStock(p.getId(), new StockOperationRequest("wrong-shop",
                 StockOperationRequest.Operation.ADD_STOCK, BigDecimal.ONE, null))).hasMessageContaining("404");
         var sale = sale(p, 1); sale.setRequestId(null);
@@ -310,4 +310,8 @@ class StockIntegrationTest {
         restaurant.createPayment(request, "test");
         assertThat(products.findById(p.getId()).orElseThrow().getProductQuantityAmount()).isEqualByComparingTo("3");
     }
-}
+    private com.binhlaig.pos.auth.AccountContextService.Context context(Long shopId) {
+        return new com.binhlaig.pos.auth.AccountContextService.Context(
+                new com.binhlaig.pos.auth.AccountPrincipal(com.binhlaig.pos.auth.AccountPrincipal.AccountType.USER,1L,shopId,java.util.UUID.randomUUID()),
+                com.binhlaig.pos.admin.Shop.builder().id(shopId).shopCode("TEST").build(),"stock-test","stock-test","ADMIN");
+    }}

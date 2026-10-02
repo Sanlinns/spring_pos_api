@@ -79,6 +79,7 @@ public class PosReceiptService {
                 .shopAddress(userInfo.getShopAddress())
 
                 .createdByUserId(userInfo.getUserId())
+                .createdByStaffId(userInfo.getStaffAccountId())
                 .createdByUsername(userInfo.getUsername())
                 .createdByName(userInfo.getName())
                 .createdByRole(userInfo.getRole())
@@ -178,14 +179,12 @@ public class PosReceiptService {
 
     @Transactional(readOnly = true)
     public List<ReceiptListResponse> getMyReceipts(AuthenticatedUserInfo userInfo) {
-        if (userInfo == null || userInfo.getUserId() == null) {
+        if (userInfo == null || userInfo.getShopId() == null || (userInfo.getUserId() == null && userInfo.getStaffAccountId() == null)) {
             throw new RuntimeException("Login user not found.");
         }
 
         List<PosReceipt> receipts =
-                receiptRepository.findByCreatedByUserIdOrderByCreatedAtDesc(
-                        userInfo.getUserId()
-                );
+                userInfo.getStaffAccountId() != null ? receiptRepository.findByShopIdAndCreatedByStaffIdOrderByCreatedAtDesc(userInfo.getShopId(), userInfo.getStaffAccountId()) : receiptRepository.findByShopIdAndCreatedByUserIdOrderByCreatedAtDesc(userInfo.getShopId(), userInfo.getUserId());
 
         return receipts.stream()
                 .map(this::toListResponse)
@@ -251,6 +250,7 @@ public class PosReceiptService {
                 .shopAddress(receipt.getShopAddress())
 
                 .createdByUserId(receipt.getCreatedByUserId())
+                .createdByStaffId(receipt.getCreatedByStaffId())
                 .createdByUsername(receipt.getCreatedByUsername())
                 .createdByName(receipt.getCreatedByName())
                 .createdByRole(receipt.getCreatedByRole())

@@ -2,7 +2,7 @@ package com.binhlaig.pos.shop;
 
 import com.binhlaig.pos.shop.dto.ShopSettingsRequest;
 import com.binhlaig.pos.shop.dto.ShopSettingsResponse;
-import com.binhlaig.pos.user.User;
+import com.binhlaig.pos.auth.AccountContextService;
 import com.binhlaig.pos.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -17,10 +17,10 @@ import java.math.BigDecimal;
 public class ShopSettingsService {
 
     private final ShopSettingsRepository shopSettingsRepository;
-    private final UserRepository userRepository;
+    private final AccountContextService accounts;
 
     public ShopSettingsResponse getSettings(Authentication authentication) {
-        User loginUser = getLoginUser(authentication);
+        AccountContextService.Context loginUser = accounts.resolve(authentication);
 
         ShopSettings settings = shopSettingsRepository.findByShopId(loginUser.getShopId())
                 .orElseGet(() -> createDefaultSettings(loginUser));
@@ -32,7 +32,7 @@ public class ShopSettingsService {
             ShopSettingsRequest request,
             Authentication authentication
     ) {
-        User loginUser = getLoginUser(authentication);
+        AccountContextService.Context loginUser = accounts.requireOwner(authentication);
 
         ShopSettings settings = shopSettingsRepository.findByShopId(loginUser.getShopId())
                 .orElseGet(() -> createDefaultSettings(loginUser));
@@ -100,24 +100,7 @@ public class ShopSettingsService {
         return toResponse(saved);
     }
 
-    private User getLoginUser(Authentication authentication) {
-        if (authentication == null || authentication.getName() == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED,
-                    "Login token မတွေ့ပါ။ ပြန် login ဝင်ပါ။"
-            );
-        }
-
-        String username = authentication.getName();
-
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED,
-                        "User not found: " + username
-                ));
-    }
-
-    private ShopSettings createDefaultSettings(User user) {
+    private ShopSettings createDefaultSettings(AccountContextService.Context user) {
         ShopSettings settings = ShopSettings.builder()
                 .shopId(user.getShopId())
                 .shopCode(user.getShopCode())

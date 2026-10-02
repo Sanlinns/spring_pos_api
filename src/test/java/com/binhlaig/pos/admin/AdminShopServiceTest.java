@@ -47,7 +47,7 @@ class AdminShopServiceTest {
 
         AdminShopRegisterResponse response = service.registerShop(
                 " owner ", " Owner@Example.COM ", " +959123456789 ",
-                "StrongPassword123!", "ADMIN", 9112L, " shp-abc ",
+                "  StrongPassword123!  ", "ADMIN", 9112L, " shp-abc ",
                 " Binhlaig Mart ", " Yangon ", "SUPERMARKET",
                 "ACTIVE", "PRO", 30, image);
 
@@ -62,8 +62,8 @@ class AdminShopServiceTest {
         assertThat(saved.getShopId()).isEqualTo(9112L);
         assertThat(saved.getShopCode()).isEqualTo("SHP-ABC");
         assertThat(saved.getBusinessType()).isEqualTo(BusinessType.SUPERMARKET);
-        assertThat(saved.getPassword()).isNotEqualTo("StrongPassword123!");
-        assertThat(passwordEncoder.matches("StrongPassword123!", saved.getPassword())).isTrue();
+        assertThat(saved.getPassword()).isNotEqualTo("  StrongPassword123!  ");
+        assertThat(passwordEncoder.matches("  StrongPassword123!  ", saved.getPassword())).isTrue();
         assertThat(saved.getImageUrl()).isEqualTo("/uploads/avatars/owner.png");
         assertThat(response.email()).isEqualTo("owner@example.com");
         assertThat(response.phone()).isEqualTo("+959123456789");
@@ -75,7 +75,7 @@ class AdminShopServiceTest {
     void registrationStillWorksWithoutOptionalPhoneOrImage() throws Exception {
         AdminShopRegisterResponse response = service.registerShop(
                 "owner", "owner@example.com", null,
-                "StrongPassword123!", "ADMIN", 9112L, "SHP-ABC",
+                "  StrongPassword123!  ", "ADMIN", 9112L, "SHP-ABC",
                 "Binhlaig Mart", "Yangon", "SUPERMARKET",
                 "TRIAL", "TRIAL", 14, null);
 
@@ -91,7 +91,7 @@ class AdminShopServiceTest {
 
         assertThatThrownBy(() -> service.registerShop(
                 "owner", " TAKEN@EXAMPLE.COM ", null,
-                "StrongPassword123!", "ADMIN", 9112L, "SHP-ABC",
+                "  StrongPassword123!  ", "ADMIN", 9112L, "SHP-ABC",
                 "Binhlaig Mart", "Yangon", "SUPERMARKET",
                 "TRIAL", "TRIAL", 14, null))
                 .isInstanceOfSatisfying(ResponseStatusException.class, ex -> {
@@ -107,10 +107,15 @@ class AdminShopServiceTest {
     void ownerEmailIsRequired() {
         assertThatThrownBy(() -> service.registerShop(
                 "owner", "  ", null,
-                "StrongPassword123!", "ADMIN", 9112L, "SHP-ABC",
+                "  StrongPassword123!  ", "ADMIN", 9112L, "SHP-ABC",
                 "Binhlaig Mart", "Yangon", "SUPERMARKET",
                 "TRIAL", "TRIAL", 14, null))
                 .isInstanceOfSatisfying(ResponseStatusException.class,
                         ex -> assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
     }
-}
+    @Test void whitespaceOnlyPasswordIsRejectedWithoutTrimmingValidPasswords() {
+        assertThatThrownBy(() -> service.registerShop("owner","owner@example.com",null,
+                "        ","ADMIN",9112L,"SHP-ABC","Shop","Address","SUPERMARKET","TRIAL","TRIAL",14,null))
+                .isInstanceOfSatisfying(ResponseStatusException.class, e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
+        verify(userRepository,never()).saveAndFlush(any());
+    }}

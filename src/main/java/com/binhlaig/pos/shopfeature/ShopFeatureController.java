@@ -1,7 +1,7 @@
 package com.binhlaig.pos.shopfeature;
 
 import com.binhlaig.pos.shopfeature.dto.ShopFeatureResponse;
-import com.binhlaig.pos.user.User;
+import com.binhlaig.pos.auth.AccountContextService;
 import com.binhlaig.pos.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -15,19 +15,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class ShopFeatureController {
 
     private final ShopFeatureService shopFeatureService;
-    private final UserRepository userRepository;
+    private final AccountContextService accounts;
 
     @GetMapping("/my")
     public ShopFeatureResponse getMyFeatures(Authentication authentication) {
-        User user = currentUser(authentication);
+        var user = accounts.resolve(authentication);
         return shopFeatureService.getOrCreateForCurrentShop(user.getShopId(), user.getShopCode());
     }
 
-    private User currentUser(Authentication authentication) {
-        if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
-            throw new RuntimeException("Login user not found.");
-        }
-        return userRepository.findByUsername(authentication.getName())
-                .orElseThrow(() -> new RuntimeException("User not found: " + authentication.getName()));
-    }
 }

@@ -26,17 +26,17 @@ import static org.mockito.Mockito.*;
 class ProductAvailabilityServiceTest {
     @Mock ProductRepository repository;
     @Mock FileStorageService storage;
-    @Mock UserRepository userRepository;
+    @Mock com.binhlaig.pos.auth.AccountContextService accounts;
     @Mock PlanLimitService planLimitService;
     private ProductService service;
 
     @BeforeEach
     void setUp() {
-        service = new ProductService(repository, storage, userRepository, new ObjectMapper(), planLimitService, mock(StockService.class), mock(StockRequestService.class));
+        service = new ProductService(repository, storage, accounts, new ObjectMapper(), planLimitService, mock(StockService.class), mock(StockRequestService.class));
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken("owner", "n/a"));
-        when(userRepository.findByUsername("owner"))
-                .thenReturn(Optional.of(User.builder().username("owner").shopId(10L).build()));
+        when(accounts.resolve(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(new com.binhlaig.pos.auth.AccountContextService.Context(new com.binhlaig.pos.auth.AccountPrincipal(com.binhlaig.pos.auth.AccountPrincipal.AccountType.USER, 1L, 10L, java.util.UUID.randomUUID()), com.binhlaig.pos.admin.Shop.builder().id(10L).build(), "owner", "owner", "ADMIN"));
     }
 
     @AfterEach

@@ -1,78 +1,3 @@
-//
-//
-//
-//package com.binhlaig.pos.receipt.controller;
-//
-//import com.binhlaig.pos.receipt.dto.AuthenticatedUserInfo;
-//import com.binhlaig.pos.receipt.dto.ReceiptCreateRequest;
-//import com.binhlaig.pos.receipt.dto.ReceiptListResponse;
-//import com.binhlaig.pos.receipt.dto.ReceiptResponse;
-//import com.binhlaig.pos.receipt.service.PosReceiptService;
-//import com.binhlaig.pos.user.User;
-//import com.binhlaig.pos.user.UserRepository;
-//import lombok.RequiredArgsConstructor;
-//import org.springframework.security.core.Authentication;
-//import org.springframework.web.bind.annotation.*;
-//
-//import java.util.List;
-//
-//@RestController
-//@RequestMapping("/api/pos/receipts")
-//@RequiredArgsConstructor
-//public class PosReceiptController {
-//
-//    private final PosReceiptService receiptService;
-//    private final UserRepository userRepository;
-//
-//    @PostMapping
-//    public ReceiptResponse createReceipt(
-//            @RequestBody ReceiptCreateRequest request,
-//            Authentication authentication
-//    ) {
-//        AuthenticatedUserInfo userInfo = getLoginUserInfo(authentication);
-//        return receiptService.createReceipt(request, userInfo);
-//    }
-//
-//    @GetMapping("/my")
-//    public List<ReceiptListResponse> getMyReceipts(Authentication authentication) {
-//        AuthenticatedUserInfo userInfo = getLoginUserInfo(authentication);
-//        return receiptService.getMyReceipts(userInfo);
-//    }
-//
-//    private AuthenticatedUserInfo getLoginUserInfo(Authentication authentication) {
-//        if (
-//                authentication == null ||
-//                        authentication.getName() == null ||
-//                        authentication.getName().isBlank()
-//        ) {
-//            throw new RuntimeException("Login user not found.");
-//        }
-//
-//        String username = authentication.getName();
-//
-//        User user = userRepository.findByUsername(username)
-//                .orElseThrow(() -> new RuntimeException("User not found: " + username));
-//
-//        return AuthenticatedUserInfo.builder()
-//                .userId(user.getId())
-//                .username(user.getUsername())
-//                .name(user.getUsername())
-//                .role(user.getRole() == null ? null : user.getRole().name())
-//                .shopId(user.getShopId())
-//                .shopCode(user.getShopCode())
-//                .shopName(user.getShopName())
-//                .shopAddress(user.getAddress())
-//                .build();
-//    }
-//}
-
-
-
-
-
-
-
-
 package com.binhlaig.pos.receipt.controller;
 
 import com.binhlaig.pos.receipt.dto.AuthenticatedUserInfo;
@@ -82,7 +7,7 @@ import com.binhlaig.pos.receipt.dto.ReceiptResponse;
 import com.binhlaig.pos.receipt.service.PosReceiptService;
 import com.binhlaig.pos.shopfeature.FeatureKey;
 import com.binhlaig.pos.shopfeature.ShopFeatureService;
-import com.binhlaig.pos.user.User;
+import com.binhlaig.pos.auth.AccountContextService;
 import com.binhlaig.pos.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -97,7 +22,7 @@ import java.util.List;
 public class PosReceiptController {
 
     private final PosReceiptService receiptService;
-    private final UserRepository userRepository;
+    private final AccountContextService accounts;
     private final ShopFeatureService shopFeatureService;
 
     @PostMapping
@@ -136,24 +61,14 @@ public class PosReceiptController {
     }
 
     private AuthenticatedUserInfo getLoginUserInfo(Authentication authentication) {
-        if (
-                authentication == null ||
-                        authentication.getName() == null ||
-                        authentication.getName().isBlank()
-        ) {
-            throw new RuntimeException("Login user not found.");
-        }
-
-        String username = authentication.getName();
-
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found: " + username));
+        var user = accounts.resolve(authentication);
 
         return AuthenticatedUserInfo.builder()
-                .userId(user.getId())
+                .userId(user.getUserId())
+                .staffAccountId(user.getStaffId())
                 .username(user.getUsername())
-                .name(user.getUsername())
-                .role(user.getRole() == null ? null : user.getRole().name())
+                .name(user.getName())
+                .role(user.getRole())
                 .shopId(user.getShopId())
                 .shopCode(user.getShopCode())
                 .shopName(user.getShopName())

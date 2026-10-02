@@ -90,7 +90,7 @@ public class AdminShopService {
         String cleanUsername = required(username, "Username is required");
         String cleanEmail = required(email, "Email is required").toLowerCase(Locale.ROOT);
         String cleanPhone = clean(phone);
-        String cleanPassword = password == null ? "" : password.trim();
+        String cleanPassword = password == null ? "" : password;
         String cleanShopCode = required(shopCode, "Shop code is required").toUpperCase(Locale.ROOT);
         String cleanShopName = required(shopName, "Shop name is required");
         String cleanAddress = required(address, "Address is required");
@@ -106,7 +106,7 @@ public class AdminShopService {
         if (cleanPhone != null && cleanPhone.length() > 30) {
             throw new ResponseStatusException(BAD_REQUEST, "Phone must be at most 30 characters");
         }
-        if (cleanPassword.length() < 8) {
+        if (cleanPassword.isBlank() || cleanPassword.length() < 8) {
             throw new ResponseStatusException(BAD_REQUEST, "Password must be at least 8 characters");
         }
         if (shopId == null || shopId <= 0) {

@@ -23,7 +23,7 @@ import com.binhlaig.pos.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
+import com.binhlaig.pos.auth.AccountPrincipal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -47,6 +47,7 @@ public class MeService {
     private final ProductRepository productRepository;
     private final PosReceiptRepository receiptRepository;
     private final ShopFeatureRepository shopFeatureRepository;
+    private final com.binhlaig.pos.auth.session.SessionStore sessions;
 
     @Transactional(readOnly = true)
     public MeProfileResponse getProfile(Authentication authentication) {
@@ -131,24 +132,7 @@ public class MeService {
     }
 
     private User resolveCurrentUser(Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
-        }
-        String username = null;
-        Object principal = authentication.getPrincipal();
-        if (principal instanceof UserDetails userDetails) {
-            username = userDetails.getUsername();
-        } else if (principal instanceof String value) {
-            username = value;
-        }
-        if (username == null || username.isBlank()) {
-            username = authentication.getName();
-        }
-        if (username == null || username.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated username not found");
-        }
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Current user not found"));
+        return AccountPrincipal.require(authentication).requireUser(userRepository);
     }
 
     private Optional<Shop> findShop(User user) {
@@ -274,12 +258,13 @@ public class MeService {
 
     private PlanUsageDto currentUsage(Long shopId) {
         if (shopId == null) {
-            return PlanUsageDto.builder().staffCount(0).productCount(0).receiptCount(0).build();
+            return PlanUsageDto.builder().staffCount(0).productCount(0).receiptCount(0).deviceCount(0).build();
         }
         YearMonth month = YearMonth.now();
         LocalDateTime start = month.atDay(1).atStartOfDay();
         LocalDateTime end = month.plusMonths(1).atDay(1).atStartOfDay();
         return PlanUsageDto.builder()
+                .deviceCount(sessions.activeDevices(shopId))
                 .staffCount(toIntCount(staffRepository.countByShopId(shopId)))
                 .productCount(toIntCount(productRepository.countByShopId(shopId)))
                 .receiptCount(toIntCount(receiptRepository.countByShopIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThan(shopId, start, end)))

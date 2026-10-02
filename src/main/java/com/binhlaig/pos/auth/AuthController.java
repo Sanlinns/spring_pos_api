@@ -94,6 +94,8 @@ public class AuthController {
 
     private final AuthService service;
     private final PasswordResetService passwordResetService;
+    private final com.binhlaig.pos.auth.session.SessionCookies cookies;
+    private final com.binhlaig.pos.auth.session.SessionService sessions;
 
     @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public RegisterResponse register(
@@ -120,13 +122,45 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public AuthResponse login(@RequestBody @Valid LoginRequest req) {
-        return service.login(req);
+    public AuthResponse login(@RequestBody @Valid LoginRequest req,
+            @RequestHeader("X-Device-ID") String deviceId, @RequestHeader("X-Device-Name") String deviceName,
+            jakarta.servlet.http.HttpServletRequest request, jakarta.servlet.http.HttpServletResponse response) {
+        cookies.requireOrigin(request);
+        var result = service.login(req, deviceId, deviceName);
+        cookies.write(response, result.refreshToken(), result.sessionExpiresAt());
+        return result.response();
     }
 
     @PostMapping("/staff/login")
-    public AuthResponse staffLogin(@RequestBody @Valid StaffLoginRequest req) {
-        return service.staffLogin(req);
+    public AuthResponse staffLogin(@RequestBody @Valid StaffLoginRequest req,
+            @RequestHeader("X-Device-ID") String deviceId, @RequestHeader("X-Device-Name") String deviceName,
+            jakarta.servlet.http.HttpServletRequest request, jakarta.servlet.http.HttpServletResponse response) {
+        cookies.requireOrigin(request);
+        var result = service.staffLogin(req, deviceId, deviceName);
+        cookies.write(response, result.refreshToken(), result.sessionExpiresAt());
+        return result.response();
+    }
+
+    @PostMapping("/refresh")
+    public AuthResponse refresh(jakarta.servlet.http.HttpServletRequest request, jakarta.servlet.http.HttpServletResponse response) {
+        cookies.requireOrigin(request);
+        try {
+            var result = service.refresh(cookies.read(request));
+            cookies.write(response, result.refreshToken(), result.sessionExpiresAt());
+            return result.response();
+        } catch (com.binhlaig.pos.auth.session.SessionService.InvalidRefresh ex) {
+            cookies.write(response, null);
+            throw ex;
+        }
+    }
+
+    @PostMapping("/logout")
+    @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void logout(@RequestHeader("Authorization") String authorization,
+            jakarta.servlet.http.HttpServletRequest request, jakarta.servlet.http.HttpServletResponse response) {
+        cookies.requireOrigin(request);
+        sessions.logout(authorization.substring(7));
+        cookies.write(response, null);
     }
 
     @PostMapping("/forgot-password")

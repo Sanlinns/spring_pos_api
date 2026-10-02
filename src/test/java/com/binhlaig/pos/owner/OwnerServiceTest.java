@@ -50,8 +50,8 @@ class OwnerServiceTest {
                 .id(9112L).shopCode("SHP-OLD").shopName("Old Mart")
                 .address("Old Address").businessType("SUPERMARKET").build();
         authentication = new UsernamePasswordAuthenticationToken(
-                "owner", null, List.of(() -> "ROLE_ADMIN"));
-        when(userRepository.findByUsername("owner")).thenReturn(Optional.of(owner));
+                new com.binhlaig.pos.auth.AccountPrincipal(com.binhlaig.pos.auth.AccountPrincipal.AccountType.USER, 1L, 9112L, java.util.UUID.randomUUID()), null, List.of(() -> "ROLE_ADMIN"));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(owner));
         when(shopRepository.findById(9112L)).thenReturn(Optional.of(shop));
     }
 

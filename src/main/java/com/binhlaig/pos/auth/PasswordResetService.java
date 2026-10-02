@@ -45,6 +45,7 @@ public class PasswordResetService {
     private final PasswordResetTokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final PasswordResetEmailService emailService;
+    private final com.binhlaig.pos.auth.session.SessionService sessions;
 
     @Transactional
     public PasswordResetResponse forgotPassword(ForgotPasswordRequest request) {
@@ -57,6 +58,7 @@ public class PasswordResetService {
         if (user == null) {
             return new PasswordResetResponse(FORGOT_MESSAGE);
         }
+        sessions.lockAccount(user);
 
         tokenRepository.invalidateUnusedByUserId(user.getId());
 
@@ -86,12 +88,16 @@ public class PasswordResetService {
             throw new IllegalArgumentException("New password and confirmation do not match.");
         }
 
+        PasswordResetToken candidate = tokenRepository.findByTokenHash(hashToken(request.token()))
+                .orElseThrow(() -> new IllegalArgumentException(INVALID_TOKEN_MESSAGE));
+        sessions.lockAccount(candidate.getUser());
         PasswordResetToken resetToken = findAvailableToken(request.token())
                 .orElseThrow(() -> new IllegalArgumentException(INVALID_TOKEN_MESSAGE));
 
         User user = resetToken.getUser();
         user.setPassword(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
+        sessions.revokeUser(user);
 
         resetToken.setUsed(true);
         tokenRepository.saveAndFlush(resetToken);
